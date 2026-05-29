@@ -1,0 +1,9 @@
+flask
+flask-cors
+chromadb
+sentence-transformers
+langchain-text-splitters
+pymupdf
+groq
+gunicorn
+torch
