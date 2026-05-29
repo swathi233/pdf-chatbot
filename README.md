@@ -1,6 +1,6 @@
 # 📄 PDF Research Assistant (Offline RAG Chatbot)
 
-A powerful AI-powered PDF chatbot built using:
+A modern AI-powered PDF chatbot built using:
 
 * Flask
 * ChromaDB
@@ -9,7 +9,7 @@ A powerful AI-powered PDF chatbot built using:
 * PyMuPDF
 * LangChain Text Splitters
 
-Upload research papers, reports, or PDFs and ask questions directly from the document using Retrieval-Augmented Generation (RAG).
+Upload PDFs, research papers, reports, and interact with them using Retrieval-Augmented Generation (RAG).
 
 ---
 
@@ -20,8 +20,29 @@ Upload research papers, reports, or PDFs and ask questions directly from the doc
 * 🤖 AI-powered question answering
 * ⚡ Fast inference using Groq API
 * 🧠 Local vector database using ChromaDB
-* 📱 Mobile-friendly UI
-* ☁️ Deployable on Render/Railway
+* 📱 Fully responsive mobile UI
+* 💬 Always-visible mobile chatbox
+* ☁️ Deployable on Render / Railway / Replit
+* 🌙 Modern dark UI
+
+---
+
+# 📱 Mobile Responsive Improvements
+
+This project is optimized for:
+
+* Mobile phones
+* Tablets
+* Desktop browsers
+
+### Mobile Features
+
+* Fixed bottom chat input
+* Responsive layout
+* Full-screen chat experience
+* Auto-scroll messages
+* Hidden side panel on smaller screens
+* Touch-friendly buttons
 
 ---
 
@@ -29,22 +50,23 @@ Upload research papers, reports, or PDFs and ask questions directly from the doc
 
 ## Upload PDF
 
-* Upload any PDF document
-* Text gets extracted and embedded
-* Vector database created automatically
+* Upload any PDF
+* Automatic text extraction
+* Embedding generation
+* ChromaDB indexing
 
 ## Ask Questions
 
-Examples:
+Example prompts:
 
 ```txt
-What is the proposed methodology?
+Summarize this paper.
 
-Summarize the conclusion.
+Explain the methodology.
 
 What datasets were used?
 
-Explain the architecture.
+What are the key findings?
 ```
 
 ---
@@ -54,11 +76,11 @@ Explain the architecture.
 | Technology            | Purpose         |
 | --------------------- | --------------- |
 | Flask                 | Backend API     |
-| ChromaDB              | Vector database |
+| ChromaDB              | Vector Database |
 | Sentence Transformers | Embeddings      |
-| Groq API              | LLM inference   |
-| PyMuPDF               | PDF extraction  |
-| LangChain             | Text chunking   |
+| Groq API              | LLM Inference   |
+| PyMuPDF               | PDF Parsing     |
+| LangChain             | Text Chunking   |
 | HTML/CSS/JS           | Frontend        |
 
 ---
@@ -72,7 +94,7 @@ pdf-chatbot/
 ├── requirements.txt
 ├── Procfile
 ├── runtime.txt
-├── .gitignore
+├── README.md
 │
 ├── templates/
 │   └── index.html
@@ -122,33 +144,27 @@ pip install -r requirements.txt
 
 ---
 
-# 🔑 Setup Groq API
+# 🔑 Setup Groq API Key
 
-## Create API Key
+Generate a free API key from:
 
-Go to:
-
+```txt
 https://console.groq.com
-
-Generate a free API key.
+```
 
 ---
 
-## Windows
-
-### CMD
+## Windows CMD
 
 ```bash
 set GROQ_API_KEY=your_api_key
 ```
 
-### PowerShell
+## Windows PowerShell
 
 ```bash
 $env:GROQ_API_KEY="your_api_key"
 ```
-
----
 
 ## Linux / Mac
 
@@ -172,72 +188,69 @@ http://127.0.0.1:5000
 
 ---
 
-# ☁️ Deploy on Render
+# ☁️ Free Deployment Options
 
-## 1. Push Code to GitHub
+## 1. Render (Recommended)
+
+### Build Command
 
 ```bash
-git init
-
-git add .
-
-git commit -m "Initial commit"
-
-git branch -M main
-
-git remote add origin YOUR_REPO_URL
-
-git push -u origin main
+pip install -r requirements.txt
 ```
 
----
+### Start Command
 
-## 2. Create Render Web Service
+```bash
+gunicorn app:app
+```
 
-Go to:
-
-https://render.com
-
-Create:
-
-* New Web Service
-* Connect GitHub repository
-
----
-
-## 3. Render Settings
-
-| Field         | Value                             |
-| ------------- | --------------------------------- |
-| Runtime       | Python                            |
-| Build Command | `pip install -r requirements.txt` |
-| Start Command | `gunicorn app:app`                |
-
----
-
-## 4. Add Environment Variable
+### Add Environment Variable
 
 ```txt
-GROQ_API_KEY = your_api_key
+GROQ_API_KEY=your_api_key
 ```
 
 ---
 
-## 5. Deploy
+## 2. Railway
 
-Render will generate:
+### Start Command
 
-```txt
-https://your-app-name.onrender.com
+```bash
+gunicorn app:app
 ```
+
+---
+
+## 3. Replit
+
+### Run Command
+
+```bash
+python app.py
+```
+
+---
+
+# 📱 Mobile UI Fixes Included
+
+The latest frontend improvements include:
+
+* Responsive chat layout
+* Fixed bottom input box
+* Better textarea scaling
+* Scrollable chat window
+* Mobile-safe viewport handling
+* No hidden chatbox on small screens
+* Improved touch support
 
 ---
 
 # 🧠 How It Works
 
-## Step 1 — PDF Upload
+## Step 1 — Upload PDF
 
-PDF text is extracted using:
+PDF text extracted using:
 
 ```python
 PyMuPDF
@@ -245,9 +258,9 @@ PyMuPDF
 
 ---
 
-## Step 2 — Text Chunking
+## Step 2 — Chunking
 
-Text is split into chunks using:
+Text split using:
 
 ```python
 RecursiveCharacterTextSplitter
@@ -255,7 +268,7 @@ RecursiveCharacterTextSplitter
 
 ---
 
-## Step 3 — Embedding Generation
+## Step 3 — Embeddings
 
 Embeddings generated using:
 
@@ -275,24 +288,22 @@ ChromaDB similarity search
 
 ---
 
-## Step 5 — AI Answering
+## Step 5 — LLM Response
 
-Context sent to Groq LLM for final answer generation.
+Context passed to Groq API for final answer generation.
 
 ---
 
-# 📌 Example Queries
+# 📌 Example Questions
 
 ```txt
-Summarize the paper.
+Summarize this PDF.
 
-What problem does this paper solve?
-
-Explain the methodology.
-
-What are the key findings?
+Explain the architecture.
 
 What future work is proposed?
+
+What conclusions were made?
 ```
 
 ---
@@ -300,34 +311,24 @@ What future work is proposed?
 # 🔧 Future Improvements
 
 * Multi-PDF support
+* OCR support
 * Streaming responses
 * Citation highlighting
-* OCR support
-* Image extraction
-* Reranking
 * Authentication
+* Docker support
 * Chat history
-* Docker deployment
+* Voice input
+* PDF image extraction
 
 ---
 
-# 🐳 Docker Support (Optional)
+# 🐳 Docker Support
 
 Future deployment can include:
 
 * Flask container
 * ChromaDB persistence
 * Nginx reverse proxy
-
----
-
-# 📱 Mobile Support
-
-The UI is responsive and works on:
-
-* Mobile
-* Tablet
-* Desktop
 
 ---
 
@@ -350,4 +351,4 @@ MIT License
 
 # ⭐ Star This Repository
 
-If you found this project useful, please consider starring the repository.
+If this project helped you, please consider starring the repository.
