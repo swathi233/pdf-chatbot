@@ -13,46 +13,59 @@ from groq import Groq
 from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# =========================================
+# =====================================================
 # FLASK APP
-# =========================================
+# =====================================================
 
 app = Flask(__name__)
 CORS(app)
 
-# =========================================
+# =====================================================
 # GROQ SETUP
-# =========================================
+# =====================================================
 
 groq_client = Groq(
-    api_key=os.getenv("GROQ_API_KEY")
+    api_key=os.environ.get("GROQ_API_KEY")
 )
 
-MODEL = "llama3-70b-8192"
+MODEL = "llama3-8b-8192"
 
-# =========================================
+# =====================================================
 # CHROMADB
-# =========================================
+# =====================================================
 
 collection = None
 
-client = chromadb.PersistentClient(path="./chroma_db")
-
-# =========================================
-# EMBEDDING MODEL
-# =========================================
-
-print("Loading embedding model...")
-
-embedding_model = SentenceTransformer(
-    "sentence-transformers/all-MiniLM-L6-v2"
+client = chromadb.PersistentClient(
+    path="./chroma_db"
 )
 
-print("Embedding model loaded.")
+# =====================================================
+# EMBEDDING MODEL (LAZY LOADING)
+# =====================================================
 
-# =========================================
+embedding_model = None
+
+def get_model():
+
+    global embedding_model
+
+    if embedding_model is None:
+
+        print("Loading embedding model...")
+
+        embedding_model = SentenceTransformer(
+            "all-MiniLM-L6-v2",
+            device="cpu"
+        )
+
+        print("Embedding model loaded.")
+
+    return embedding_model
+
+# =====================================================
 # GREETINGS
-# =========================================
+# =====================================================
 
 GREETINGS = {
     "hi": "👋 Hello!",
@@ -61,42 +74,48 @@ GREETINGS = {
     "good morning": "☀️ Good morning"
 }
 
-# =========================================
+# =====================================================
 # CLEAN TEXT
-# =========================================
+# =====================================================
 
 def clean(text):
     return re.sub(r"\s+", " ", text).strip()
 
-# =========================================
+# =====================================================
 # PDF EXTRACTION
-# =========================================
+# =====================================================
 
 def extract_pdf(path):
+
     try:
+
         doc = fitz.open(path)
 
         text = []
 
         for page in doc:
-            t = page.get_text()
 
-            if t:
-                text.append(t)
+            page_text = page.get_text()
+
+            if page_text:
+                text.append(page_text)
 
         doc.close()
 
         return "\n".join(text)
 
     except Exception as e:
+
         print("PDF ERROR:", e)
+
         return ""
 
-# =========================================
-# BUILD VECTOR DB
-# =========================================
+# =====================================================
+# BUILD VECTOR DATABASE
+# =====================================================
 
 def build_db(text):
+
     global collection
 
     splitter = RecursiveCharacterTextSplitter(
@@ -106,19 +125,36 @@ def build_db(text):
 
     chunks = splitter.split_text(text)
 
-    chunks = [c for c in chunks if len(c) > 80]
+    chunks = [
+        c for c in chunks
+        if len(c) > 80
+    ]
 
     if not chunks:
         raise Exception("No text extracted from PDF")
 
-    embeddings = embedding_model.encode(chunks)
+    # ============================================
+    # EMBEDDINGS
+    # ============================================
+
+    embeddings = get_model().encode(chunks)
+
+    # ============================================
+    # RESET COLLECTION
+    # ============================================
 
     try:
         client.delete_collection("docs")
     except:
         pass
 
-    collection = client.get_or_create_collection("docs")
+    collection = client.get_or_create_collection(
+        "docs"
+    )
+
+    # ============================================
+    # STORE EMBEDDINGS
+    # ============================================
 
     collection.add(
         ids=[str(i) for i in range(len(chunks))],
@@ -128,18 +164,20 @@ def build_db(text):
 
     return len(chunks)
 
-# =========================================
-# PROMPT
-# =========================================
+# =====================================================
+# PROMPT TEMPLATE
+# =====================================================
 
 def build_prompt(question, context):
+
     return f"""
 You are a strict research assistant.
 
 RULES:
-- Answer ONLY using provided context
-- If answer not found, say:
-  "I could not find this in the document"
+- Answer ONLY from provided context
+- Do NOT hallucinate
+- If answer not found say:
+"I could not find this in the document"
 
 CONTEXT:
 {context}
@@ -150,43 +188,71 @@ QUESTION:
 ANSWER:
 """
 
-# =========================================
-# HOME
-# =========================================
+# =====================================================
+# HOME PAGE
+# =====================================================
 
 @app.route("/")
 def home():
-    return render_template("index.html")
 
-# =========================================
-# UPLOAD PDF
-# =========================================
+    return render_template(
+        "index.html"
+    )
+
+# =====================================================
+# PDF UPLOAD
+# =====================================================
 
 @app.route("/upload", methods=["POST"])
 def upload():
 
+    global collection
+
     try:
+
         file = request.files["file"]
 
         if not file:
+
             return jsonify({
                 "error": "No file uploaded"
             })
 
-        path = os.path.join(
+        # ============================================
+        # SAVE TEMP FILE
+        # ============================================
+
+        temp_path = os.path.join(
             tempfile.gettempdir(),
             file.filename
         )
 
-        file.save(path)
+        file.save(temp_path)
 
-        text = extract_pdf(path)
+        # ============================================
+        # EXTRACT TEXT
+        # ============================================
+
+        text = extract_pdf(temp_path)
+
+        if not text.strip():
+
+            return jsonify({
+                "error": "No readable text found in PDF"
+            })
+
+        # ============================================
+        # BUILD VECTOR DB
+        # ============================================
 
         start = time.time()
 
         chunks = build_db(text)
 
-        elapsed = round(time.time() - start, 2)
+        elapsed = round(
+            time.time() - start,
+            2
+        )
 
         return jsonify({
             "ready": True,
@@ -195,13 +261,14 @@ def upload():
         })
 
     except Exception as e:
+
         return jsonify({
             "error": str(e)
         })
 
-# =========================================
+# =====================================================
 # ASK QUESTION
-# =========================================
+# =====================================================
 
 @app.route("/ask", methods=["POST"])
 def ask():
@@ -209,43 +276,63 @@ def ask():
     global collection
 
     try:
-        q = request.json.get(
+
+        data = request.get_json()
+
+        question = data.get(
             "question",
             ""
         ).strip()
 
-        if q.lower() in GREETINGS:
+        # ============================================
+        # GREETINGS
+        # ============================================
+
+        if question.lower() in GREETINGS:
+
             return jsonify({
-                "answer": GREETINGS[q.lower()]
+                "answer": GREETINGS[
+                    question.lower()
+                ]
             })
+
+        # ============================================
+        # CHECK PDF
+        # ============================================
 
         if collection is None:
+
             return jsonify({
-                "answer": "❌ Please upload a PDF first."
+                "answer":
+                "❌ Please upload a PDF first."
             })
 
-        # ==========================
+        # ============================================
         # QUERY EMBEDDING
-        # ==========================
+        # ============================================
 
-        query_emb = embedding_model.encode([q])
+        query_embedding = get_model().encode(
+            [question]
+        )
 
-        # ==========================
+        # ============================================
         # VECTOR SEARCH
-        # ==========================
+        # ============================================
 
         results = collection.query(
-            query_embeddings=query_emb.tolist(),
+            query_embeddings=query_embedding.tolist(),
             n_results=6
         )
 
+        documents = results["documents"][0]
+
         context = "\n\n".join(
-            results["documents"][0]
+            documents
         )[:8000]
 
-        # ==========================
-        # LLM CALL
-        # ==========================
+        # ============================================
+        # GROQ API CALL
+        # ============================================
 
         start = time.time()
 
@@ -254,7 +341,10 @@ def ask():
             messages=[
                 {
                     "role": "user",
-                    "content": build_prompt(q, context)
+                    "content": build_prompt(
+                        question,
+                        context
+                    )
                 }
             ],
             temperature=0.2
@@ -269,21 +359,39 @@ def ask():
 
         return jsonify({
             "answer": answer,
-            "time": elapsed
+            "response_time": elapsed
         })
 
     except Exception as e:
+
         return jsonify({
             "answer": str(e)
         })
 
-# =========================================
+# =====================================================
+# HEALTH CHECK
+# =====================================================
+
+@app.route("/health")
+def health():
+
+    return jsonify({
+        "status": "running"
+    })
+
+# =====================================================
 # MAIN
-# =========================================
+# =====================================================
 
 if __name__ == "__main__":
+
+    port = int(
+        os.environ.get("PORT", 5000)
+    )
+
     app.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True
+        port=port,
+        debug=False
     )
+

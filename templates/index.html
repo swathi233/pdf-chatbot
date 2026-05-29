@@ -1,10 +1,15 @@
-```html
+
 <!DOCTYPE html>
 <html>
+
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1"
+/>
 
 <title>PDF Research Assistant</title>
 
@@ -17,6 +22,7 @@
 --primary:#3b82f6;
 --border:#223552;
 --text:#ffffff;
+--muted:#9bb4d6;
 }
 
 *{
@@ -27,7 +33,11 @@ box-sizing:border-box;
 
 body{
 font-family:Arial;
-background:linear-gradient(135deg,#07111f,#0f172a);
+background:linear-gradient(
+135deg,
+#07111f,
+#0f172a
+);
 color:white;
 height:100vh;
 overflow:hidden;
@@ -35,36 +45,42 @@ overflow:hidden;
 
 .container{
 display:grid;
-grid-template-columns:350px 1fr;
+grid-template-columns:360px 1fr;
 height:100vh;
 }
+
+/* ========================================= */
+/* LEFT PANEL */
+/* ========================================= */
 
 .left{
 background:var(--panel);
 padding:24px;
 border-right:1px solid var(--border);
+overflow-y:auto;
 }
 
 .logo{
-font-size:32px;
+font-size:34px;
 font-weight:700;
 margin-bottom:30px;
 }
 
 .card{
 background:var(--card);
-padding:20px;
+padding:22px;
 border-radius:18px;
+margin-bottom:22px;
 }
 
 input{
 width:100%;
 padding:14px;
-margin-top:12px;
-border:none;
-border-radius:12px;
 background:#08111d;
 color:white;
+border:none;
+border-radius:14px;
+outline:none;
 }
 
 button{
@@ -72,11 +88,15 @@ width:100%;
 padding:14px;
 margin-top:14px;
 border:none;
-border-radius:12px;
+border-radius:14px;
 background:var(--primary);
 color:white;
 font-weight:700;
 cursor:pointer;
+}
+
+button:hover{
+opacity:0.9;
 }
 
 #status{
@@ -85,6 +105,10 @@ white-space:pre-line;
 color:#9cc9ff;
 }
 
+/* ========================================= */
+/* RIGHT PANEL */
+/* ========================================= */
+
 .right{
 display:flex;
 flex-direction:column;
@@ -92,7 +116,7 @@ height:100vh;
 }
 
 .header{
-padding:20px;
+padding:24px;
 font-size:22px;
 font-weight:700;
 border-bottom:1px solid var(--border);
@@ -112,11 +136,12 @@ padding:14px;
 border-radius:14px;
 max-width:85%;
 white-space:pre-wrap;
+line-height:1.5;
 }
 
 .user{
 align-self:flex-end;
-background:#2563eb;
+background:var(--primary);
 }
 
 .bot{
@@ -143,11 +168,16 @@ border:none;
 border-radius:14px;
 color:white;
 resize:none;
+outline:none;
 }
 
 .send{
 width:120px;
 }
+
+/* ========================================= */
+/* MOBILE */
+/* ========================================= */
 
 @media(max-width:900px){
 
@@ -162,11 +192,16 @@ display:none;
 }
 
 </style>
+
 </head>
 
 <body>
 
 <div class="container">
+
+<!-- ====================================== -->
+<!-- LEFT PANEL -->
+<!-- ====================================== -->
 
 <div class="left">
 
@@ -185,16 +220,20 @@ accept=".pdf"
 />
 
 <button onclick="uploadFile()">
-Upload
+Upload PDF
 </button>
 
 </div>
 
 <div id="status">
-Upload PDF to begin.
+Upload a PDF to begin.
 </div>
 
 </div>
+
+<!-- ====================================== -->
+<!-- RIGHT PANEL -->
+<!-- ====================================== -->
 
 <div class="right">
 
@@ -216,6 +255,7 @@ Upload a PDF to start chatting.
 
 <textarea
 id="q"
+placeholder="Ask something..."
 disabled
 ></textarea>
 
@@ -235,77 +275,139 @@ Send
 
 <script>
 
-const chat=document.getElementById("chat");
-const input=document.getElementById("q");
-const status=document.getElementById("status");
+const chat =
+document.getElementById("chat");
+
+const input =
+document.getElementById("q");
+
+const status =
+document.getElementById("status");
+
+/* ===================================== */
+/* ADD MESSAGE */
+/* ===================================== */
 
 function add(text,type){
 
-let d=document.createElement("div");
+let div =
+document.createElement("div");
 
-d.className="msg "+type;
+div.className =
+"msg " + type;
 
-d.innerText=text;
+div.innerText = text;
 
-chat.appendChild(d);
+chat.appendChild(div);
 
-chat.scrollTop=chat.scrollHeight;
+chat.scrollTop =
+chat.scrollHeight;
 
-return d;
+return div;
 }
+
+/* ===================================== */
+/* ENABLE CHAT */
+/* ===================================== */
 
 function enable(){
-input.disabled=false;
+
+input.disabled = false;
 }
+
+/* ===================================== */
+/* UPLOAD PDF */
+/* ===================================== */
 
 async function uploadFile(){
 
-let f=document.getElementById("file").files[0];
+let file =
+document.getElementById("file")
+.files[0];
 
-if(!f){
-alert("Select PDF");
+if(!file){
+
+alert("Please select a PDF");
+
 return;
 }
 
-status.innerText="Processing PDF...";
+status.innerText =
+"Processing PDF...";
 
-let fd=new FormData();
+let fd = new FormData();
 
-fd.append("file",f);
+fd.append("file", file);
 
-let r=await fetch("/upload",{
+try{
+
+let response =
+await fetch("/upload",{
+
 method:"POST",
 body:fd
+
 });
 
-let d=await r.json();
+let data =
+await response.json();
 
-if(d.error){
+if(data.error){
 
-status.innerText=d.error;
+status.innerText =
+data.error;
+
 return;
 }
 
-status.innerText=
-`Chunks: ${d.chunks}
-Embedding Time: ${d.embed_time}s`;
+status.innerText =
+`✅ PDF Ready
+
+Chunks: ${data.chunks}
+
+Embedding Time:
+${data.embed_time}s`;
 
 enable();
+
+add(
+"✅ PDF uploaded successfully.",
+"bot"
+);
+
 }
+catch(err){
+
+status.innerText =
+"Upload failed.";
+
+console.log(err);
+
+}
+
+}
+
+/* ===================================== */
+/* ASK QUESTION */
+/* ===================================== */
 
 async function ask(){
 
-let q=input.value;
+let q = input.value.trim();
 
-if(!q)return;
+if(!q) return;
 
 add(q,"user");
 
-input.value="";
+input.value = "";
 
-let bot=add("Thinking...","bot");
+let bot =
+add("Thinking...","bot");
 
-let r=await fetch("/ask",{
+try{
+
+let response =
+await fetch("/ask",{
 
 method:"POST",
 
@@ -319,13 +421,48 @@ question:q
 
 });
 
-let d=await r.json();
+let data =
+await response.json();
 
-bot.innerText=d.answer;
+bot.innerText =
+data.answer;
+
 }
+catch(err){
+
+bot.innerText =
+"Error contacting server.";
+
+console.log(err);
+
+}
+
+}
+
+/* ===================================== */
+/* ENTER KEY */
+/* ===================================== */
+
+input.addEventListener(
+"keydown",
+function(e){
+
+if(
+e.key === "Enter" &&
+!e.shiftKey
+){
+
+e.preventDefault();
+
+ask();
+
+}
+
+}
+);
 
 </script>
 
 </body>
 </html>
-```
+
