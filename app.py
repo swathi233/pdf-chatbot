@@ -4,10 +4,10 @@ import os
 import tempfile
 import time
 import fitz  # PyMuPDF
-import chromadb
 
 from groq import Groq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 # ==========================
 # APP SETUP
@@ -15,57 +15,36 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 app = Flask(__name__)
 CORS(app)
-
-app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB limit
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 
 # ==========================
-# GROQ SETUP
+# GROQ (FIXED MODEL)
 # ==========================
 
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-MODEL = "llama3-8b-8192"
+
+# ✅ FIXED MODEL (no longer decommissioned)
+MODEL = "llama-3.1-8b-instant"
 
 # ==========================
-# CHROMA DB
+# GLOBAL STORAGE
 # ==========================
 
-client = chromadb.Client()
-collection = client.get_or_create_collection("docs")
-
-# ==========================
-# SAFE EMBEDDINGS (OPTION 1 FIX)
-# ==========================
-
-def safe_encode(texts):
-    """
-    Dummy embedding function (NO ML MODEL)
-    Prevents:
-    - Torch load
-    - SentenceTransformer crash
-    - Railway timeout
-    """
-
-    embeddings = []
-
-    for t in texts:
-        vec = [float((len(t) + i) % 100) for i in range(384)]
-        embeddings.append(vec)
-
-    return embeddings
+vectorizer = None
+matrix = None
+stored_chunks = []
 
 # ==========================
 # PDF EXTRACTION
 # ==========================
 
-def extract_pdf(file_path):
+def extract_pdf(path):
     try:
-        doc = fitz.open(file_path)
+        doc = fitz.open(path)
         text = ""
 
         for page in doc:
-            page_text = page.get_text()
-            if page_text:
-                text += page_text
+            text += page.get_text()
 
         doc.close()
         return text
@@ -75,12 +54,12 @@ def extract_pdf(file_path):
         return ""
 
 # ==========================
-# BUILD VECTOR DB
+# BUILD INDEX (REAL RAG)
 # ==========================
 
 def build_db(text):
 
-    global collection
+    global vectorizer, matrix, stored_chunks
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=800,
@@ -91,39 +70,32 @@ def build_db(text):
 
     chunks = [c for c in chunks if len(c.strip()) > 80]
 
+    # safety limit for Railway
+    chunks = chunks[:60]
+
     if not chunks:
         raise Exception("No readable text found in PDF")
 
-    # LIMIT FOR SAFETY (IMPORTANT)
-    chunks = chunks[:40]
+    stored_chunks = chunks
 
-    print("Chunks:", len(chunks))
+    # REAL vectorization (FAST + NO CRASH)
+    vectorizer = TfidfVectorizer()
+    matrix = vectorizer.fit_transform(chunks)
 
-    embeddings = safe_encode(chunks)
-
-    try:
-        old = collection.get()
-        if old["ids"]:
-            collection.delete(ids=old["ids"])
-    except:
-        pass
-
-    collection.add(
-        ids=[str(i) for i in range(len(chunks))],
-        documents=chunks,
-        embeddings=embeddings
-    )
+    print("Chunks indexed:", len(chunks))
 
     return len(chunks)
 
 # ==========================
-# PROMPT BUILDER
+# PROMPT
 # ==========================
 
 def build_prompt(question, context):
     return f"""
+You are a helpful assistant.
+
 Answer ONLY using the context below.
-If not found, say "Not found in document".
+If answer is not found, say "Not found in document".
 
 CONTEXT:
 {context}
@@ -173,13 +145,13 @@ def upload():
 
         start = time.time()
 
-        chunks_count = build_db(text)
+        chunks = build_db(text)
 
         elapsed = round(time.time() - start, 2)
 
         return jsonify({
             "ready": True,
-            "chunks": chunks_count,
+            "chunks": chunks,
             "embed_time": elapsed
         })
 
@@ -187,12 +159,10 @@ def upload():
         import traceback
         traceback.print_exc()
 
-        return jsonify({
-            "error": str(e)
-        }), 500
+        return jsonify({"error": str(e)}), 500
 
 # ==========================
-# ASK QUESTION
+# ASK (REAL PDF CHAT FIXED)
 # ==========================
 
 @app.route("/ask", methods=["POST"])
@@ -205,18 +175,15 @@ def ask():
         if not question:
             return jsonify({"answer": "Empty question"})
 
-        if collection.count() == 0:
+        if vectorizer is None:
             return jsonify({"answer": "Upload PDF first"})
 
-        query_embedding = safe_encode([question])
+        # TF-IDF SEARCH (REAL RAG)
+        q_vec = vectorizer.transform([question])
+        scores = (matrix @ q_vec.T).toarray().ravel()
 
-        results = collection.query(
-            query_embeddings=query_embedding,
-            n_results=5
-        )
-
-        docs = results["documents"][0]
-        context = "\n\n".join(docs)[:6000]
+        top_idx = scores.argsort()[-5:][::-1]
+        context = "\n\n".join([stored_chunks[i] for i in top_idx])
 
         completion = groq_client.chat.completions.create(
             model=MODEL,
@@ -246,7 +213,7 @@ def health():
     return jsonify({"status": "running"})
 
 # ==========================
-# MAIN
+# RUN
 # ==========================
 
 if __name__ == "__main__":
