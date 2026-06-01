@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 
@@ -6,27 +5,32 @@ import os
 import re
 import time
 import tempfile
-import chromadb
 import fitz
+import chromadb
 
 from groq import Groq
 from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # =====================================================
-# FLASK APP
+# FLASK
 # =====================================================
 
 app = Flask(__name__)
 CORS(app)
 
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
+
 # =====================================================
-# GROQ SETUP
+# GROQ
 # =====================================================
 
-groq_client = Groq(
-    api_key=os.environ.get("GROQ_API_KEY")
-)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
+if not GROQ_API_KEY:
+    raise Exception("GROQ_API_KEY not found")
+
+groq_client = Groq(api_key=GROQ_API_KEY)
 
 MODEL = "llama3-8b-8192"
 
@@ -34,24 +38,23 @@ MODEL = "llama3-8b-8192"
 # CHROMADB
 # =====================================================
 
-collection = None
+client = chromadb.Client()
 
-client = chromadb.PersistentClient(
-    path="./chroma_db"
+collection = client.get_or_create_collection(
+    name="docs"
 )
 
 # =====================================================
-# EMBEDDING MODEL (LAZY LOADING)
+# EMBEDDING MODEL
 # =====================================================
 
 embedding_model = None
 
-def get_model():
 
+def get_model():
     global embedding_model
 
     if embedding_model is None:
-
         print("Loading embedding model...")
 
         embedding_model = SentenceTransformer(
@@ -62,6 +65,7 @@ def get_model():
         print("Embedding model loaded.")
 
     return embedding_model
+
 
 # =====================================================
 # GREETINGS
@@ -81,37 +85,34 @@ GREETINGS = {
 def clean(text):
     return re.sub(r"\s+", " ", text).strip()
 
+
 # =====================================================
 # PDF EXTRACTION
 # =====================================================
 
 def extract_pdf(path):
-
     try:
-
         doc = fitz.open(path)
 
-        text = []
+        pages = []
 
         for page in doc:
+            txt = page.get_text()
 
-            page_text = page.get_text()
-
-            if page_text:
-                text.append(page_text)
+            if txt:
+                pages.append(txt)
 
         doc.close()
 
-        return "\n".join(text)
+        return "\n".join(pages)
 
     except Exception as e:
-
         print("PDF ERROR:", e)
-
         return ""
 
+
 # =====================================================
-# BUILD VECTOR DATABASE
+# VECTOR DATABASE
 # =====================================================
 
 def build_db(text):
@@ -127,45 +128,44 @@ def build_db(text):
 
     chunks = [
         c for c in chunks
-        if len(c) > 80
+        if len(c.strip()) > 80
     ]
 
     if not chunks:
-        raise Exception("No text extracted from PDF")
+        raise Exception("No usable text found")
 
-    # ============================================
-    # EMBEDDINGS
-    # ============================================
-
-    embeddings = get_model().encode(chunks)
-
-    # ============================================
-    # RESET COLLECTION
-    # ============================================
-
-    try:
-        client.delete_collection("docs")
-    except:
-        pass
-
-    collection = client.get_or_create_collection(
-        "docs"
+    embeddings = get_model().encode(
+        chunks,
+        show_progress_bar=False
     )
 
-    # ============================================
-    # STORE EMBEDDINGS
-    # ============================================
+    try:
+        existing = collection.get()
+
+        if existing["ids"]:
+            collection.delete(
+                ids=existing["ids"]
+            )
+    except Exception as e:
+        print("Delete warning:", e)
 
     collection.add(
-        ids=[str(i) for i in range(len(chunks))],
+        ids=[
+            str(i)
+            for i in range(len(chunks))
+        ],
         documents=chunks,
-        embeddings=[e.tolist() for e in embeddings]
+        embeddings=[
+            emb.tolist()
+            for emb in embeddings
+        ]
     )
 
     return len(chunks)
 
+
 # =====================================================
-# PROMPT TEMPLATE
+# PROMPT
 # =====================================================
 
 def build_prompt(question, context):
@@ -174,10 +174,10 @@ def build_prompt(question, context):
 You are a strict research assistant.
 
 RULES:
-- Answer ONLY from provided context
-- Do NOT hallucinate
-- If answer not found say:
-"I could not find this in the document"
+- Answer ONLY using the provided context.
+- Do not invent information.
+- If the answer does not exist in the document say:
+"I could not find this in the document."
 
 CONTEXT:
 {context}
@@ -188,66 +188,66 @@ QUESTION:
 ANSWER:
 """
 
+
 # =====================================================
-# HOME PAGE
+# HOME
 # =====================================================
 
 @app.route("/")
 def home():
+    return render_template("index.html")
 
-    return render_template(
-        "index.html"
-    )
 
 # =====================================================
-# PDF UPLOAD
+# UPLOAD PDF
 # =====================================================
 
 @app.route("/upload", methods=["POST"])
 def upload():
 
-    global collection
-
     try:
+
+        if "file" not in request.files:
+            return jsonify({
+                "error": "No file field found"
+            }), 400
 
         file = request.files["file"]
 
-        if not file:
-
+        if file.filename == "":
             return jsonify({
-                "error": "No file uploaded"
-            })
+                "error": "No file selected"
+            }), 400
 
-        # ============================================
-        # SAVE TEMP FILE
-        # ============================================
+        if not file.filename.lower().endswith(".pdf"):
+            return jsonify({
+                "error": "Only PDF files are supported"
+            }), 400
 
-        temp_path = os.path.join(
-            tempfile.gettempdir(),
-            file.filename
-        )
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".pdf"
+        ) as temp_file:
 
-        file.save(temp_path)
+            file.save(temp_file.name)
 
-        # ============================================
-        # EXTRACT TEXT
-        # ============================================
+            temp_path = temp_file.name
 
         text = extract_pdf(temp_path)
 
-        if not text.strip():
+        try:
+            os.remove(temp_path)
+        except:
+            pass
 
+        if not text.strip():
             return jsonify({
                 "error": "No readable text found in PDF"
-            })
-
-        # ============================================
-        # BUILD VECTOR DB
-        # ============================================
+            }), 400
 
         start = time.time()
 
-        chunks = build_db(text)
+        chunk_count = build_db(text)
 
         elapsed = round(
             time.time() - start,
@@ -256,15 +256,18 @@ def upload():
 
         return jsonify({
             "ready": True,
-            "chunks": chunks,
+            "chunks": chunk_count,
             "embed_time": elapsed
         })
 
     except Exception as e:
 
+        print("UPLOAD ERROR:", str(e))
+
         return jsonify({
             "error": str(e)
-        })
+        }), 500
+
 
 # =====================================================
 # ASK QUESTION
@@ -272,8 +275,6 @@ def upload():
 
 @app.route("/ask", methods=["POST"])
 def ask():
-
-    global collection
 
     try:
 
@@ -284,40 +285,29 @@ def ask():
             ""
         ).strip()
 
-        # ============================================
-        # GREETINGS
-        # ============================================
+        if not question:
+            return jsonify({
+                "answer": "Question is empty."
+            })
 
         if question.lower() in GREETINGS:
-
             return jsonify({
                 "answer": GREETINGS[
                     question.lower()
                 ]
             })
 
-        # ============================================
-        # CHECK PDF
-        # ============================================
+        existing = collection.get()
 
-        if collection is None:
-
+        if len(existing["ids"]) == 0:
             return jsonify({
                 "answer":
                 "❌ Please upload a PDF first."
             })
 
-        # ============================================
-        # QUERY EMBEDDING
-        # ============================================
-
         query_embedding = get_model().encode(
             [question]
         )
-
-        # ============================================
-        # VECTOR SEARCH
-        # ============================================
 
         results = collection.query(
             query_embeddings=query_embedding.tolist(),
@@ -330,14 +320,11 @@ def ask():
             documents
         )[:8000]
 
-        # ============================================
-        # GROQ API CALL
-        # ============================================
-
         start = time.time()
 
         completion = groq_client.chat.completions.create(
             model=MODEL,
+            temperature=0.2,
             messages=[
                 {
                     "role": "user",
@@ -346,8 +333,7 @@ def ask():
                         context
                     )
                 }
-            ],
-            temperature=0.2
+            ]
         )
 
         answer = completion.choices[0].message.content
@@ -364,20 +350,23 @@ def ask():
 
     except Exception as e:
 
+        print("ASK ERROR:", str(e))
+
         return jsonify({
             "answer": str(e)
         })
 
+
 # =====================================================
-# HEALTH CHECK
+# HEALTH
 # =====================================================
 
 @app.route("/health")
 def health():
-
     return jsonify({
         "status": "running"
     })
+
 
 # =====================================================
 # MAIN
@@ -386,7 +375,10 @@ def health():
 if __name__ == "__main__":
 
     port = int(
-        os.environ.get("PORT", 5000)
+        os.environ.get(
+            "PORT",
+            5000
+        )
     )
 
     app.run(
@@ -394,4 +386,3 @@ if __name__ == "__main__":
         port=port,
         debug=False
     )
-
