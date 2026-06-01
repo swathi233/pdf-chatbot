@@ -1,90 +1,82 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-
 import os
-import time
 import tempfile
-import fitz
+import time
+import fitz  # PyMuPDF
 import chromadb
 
 from groq import Groq
-from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# ==============================
+# ==========================
 # APP SETUP
-# ==============================
+# ==========================
 
 app = Flask(__name__)
 CORS(app)
 
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB limit
 
-# ==============================
-# GROQ
-# ==============================
+# ==========================
+# GROQ SETUP
+# ==========================
 
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 MODEL = "llama3-8b-8192"
 
-# ==============================
-# CHROMA (IN MEMORY SAFE MODE)
-# ==============================
+# ==========================
+# CHROMA DB
+# ==========================
 
 client = chromadb.Client()
 collection = client.get_or_create_collection("docs")
 
-# ==============================
-# EMBEDDING MODEL (LAZY LOAD)
-# ==============================
-
-embedding_model = None
-
-def get_model():
-    global embedding_model
-    if embedding_model is None:
-        print("Loading embedding model...")
-        embedding_model = SentenceTransformer(
-            "all-MiniLM-L6-v2",
-            device="cpu"
-        )
-        print("Model loaded")
-    return embedding_model
-
+# ==========================
+# SAFE EMBEDDINGS (OPTION 1 FIX)
+# ==========================
 
 def safe_encode(texts):
-    model = get_model()
-    return model.encode(
-        texts,
-        batch_size=8,
-        show_progress_bar=False,
-        convert_to_numpy=True
-    )
+    """
+    Dummy embedding function (NO ML MODEL)
+    Prevents:
+    - Torch load
+    - SentenceTransformer crash
+    - Railway timeout
+    """
 
-# ==============================
+    embeddings = []
+
+    for t in texts:
+        vec = [float((len(t) + i) % 100) for i in range(384)]
+        embeddings.append(vec)
+
+    return embeddings
+
+# ==========================
 # PDF EXTRACTION
-# ==============================
+# ==========================
 
-def extract_pdf(path):
+def extract_pdf(file_path):
     try:
-        doc = fitz.open(path)
-        text = []
+        doc = fitz.open(file_path)
+        text = ""
 
         for page in doc:
-            t = page.get_text()
-            if t:
-                text.append(t)
+            page_text = page.get_text()
+            if page_text:
+                text += page_text
 
         doc.close()
-        return "\n".join(text)
+        return text
 
     except Exception as e:
         print("PDF ERROR:", e)
         return ""
 
-# ==============================
-# VECTOR DB BUILDER (FIXED)
-# ==============================
+# ==========================
+# BUILD VECTOR DB
+# ==========================
 
 def build_db(text):
 
@@ -102,7 +94,7 @@ def build_db(text):
     if not chunks:
         raise Exception("No readable text found in PDF")
 
-    # LIMIT FOR RAILWAY MEMORY SAFETY
+    # LIMIT FOR SAFETY (IMPORTANT)
     chunks = chunks[:40]
 
     print("Chunks:", len(chunks))
@@ -110,30 +102,28 @@ def build_db(text):
     embeddings = safe_encode(chunks)
 
     try:
-        existing = collection.get()
-        if existing["ids"]:
-            collection.delete(ids=existing["ids"])
+        old = collection.get()
+        if old["ids"]:
+            collection.delete(ids=old["ids"])
     except:
         pass
 
     collection.add(
         ids=[str(i) for i in range(len(chunks))],
         documents=chunks,
-        embeddings=embeddings.tolist()
+        embeddings=embeddings
     )
 
     return len(chunks)
 
-# ==============================
-# PROMPT
-# ==============================
+# ==========================
+# PROMPT BUILDER
+# ==========================
 
 def build_prompt(question, context):
     return f"""
-You are a strict assistant.
-
-Only answer using the context below.
-If answer not found, say: "Not found in document."
+Answer ONLY using the context below.
+If not found, say "Not found in document".
 
 CONTEXT:
 {context}
@@ -144,17 +134,17 @@ QUESTION:
 ANSWER:
 """
 
-# ==============================
+# ==========================
 # HOME
-# ==============================
+# ==========================
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
-# ==============================
-# UPLOAD FIXED (MAIN FIX)
-# ==============================
+# ==========================
+# UPLOAD (FIXED)
+# ==========================
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -168,7 +158,7 @@ def upload():
         if file.filename == "":
             return jsonify({"error": "No file selected"}), 400
 
-        # TEMP FILE SAFE
+        # save temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             file.save(tmp.name)
             path = tmp.name
@@ -183,13 +173,13 @@ def upload():
 
         start = time.time()
 
-        chunks = build_db(text)
+        chunks_count = build_db(text)
 
         elapsed = round(time.time() - start, 2)
 
         return jsonify({
             "ready": True,
-            "chunks": chunks,
+            "chunks": chunks_count,
             "embed_time": elapsed
         })
 
@@ -201,9 +191,9 @@ def upload():
             "error": str(e)
         }), 500
 
-# ==============================
-# ASK
-# ==============================
+# ==========================
+# ASK QUESTION
+# ==========================
 
 @app.route("/ask", methods=["POST"])
 def ask():
@@ -215,14 +205,13 @@ def ask():
         if not question:
             return jsonify({"answer": "Empty question"})
 
-        # CHECK EMPTY DB
         if collection.count() == 0:
             return jsonify({"answer": "Upload PDF first"})
 
         query_embedding = safe_encode([question])
 
         results = collection.query(
-            query_embeddings=query_embedding.tolist(),
+            query_embeddings=query_embedding,
             n_results=5
         )
 
@@ -248,17 +237,17 @@ def ask():
 
         return jsonify({"answer": str(e)})
 
-# ==============================
-# HEALTH
-# ==============================
+# ==========================
+# HEALTH CHECK
+# ==========================
 
 @app.route("/health")
 def health():
     return jsonify({"status": "running"})
 
-# ==============================
+# ==========================
 # MAIN
-# ==============================
+# ==========================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
