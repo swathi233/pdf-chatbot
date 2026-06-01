@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 
 import os
-import re
 import time
 import tempfile
 import fitz
@@ -12,172 +11,129 @@ from groq import Groq
 from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# =====================================================
-# FLASK
-# =====================================================
+# ==============================
+# APP SETUP
+# ==============================
 
 app = Flask(__name__)
 CORS(app)
 
-app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB limit
 
-# =====================================================
+# ==============================
 # GROQ
-# =====================================================
+# ==============================
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-
-if not GROQ_API_KEY:
-    raise Exception("GROQ_API_KEY not found")
-
-groq_client = Groq(api_key=GROQ_API_KEY)
-
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 MODEL = "llama3-8b-8192"
 
-# =====================================================
-# CHROMADB
-# =====================================================
+# ==============================
+# CHROMA (IN MEMORY SAFE MODE)
+# ==============================
 
 client = chromadb.Client()
+collection = client.get_or_create_collection("docs")
 
-collection = client.get_or_create_collection(
-    name="docs"
-)
-
-# =====================================================
-# EMBEDDING MODEL
-# =====================================================
+# ==============================
+# EMBEDDING MODEL (LAZY LOAD)
+# ==============================
 
 embedding_model = None
 
-
 def get_model():
     global embedding_model
-
     if embedding_model is None:
         print("Loading embedding model...")
-
         embedding_model = SentenceTransformer(
             "all-MiniLM-L6-v2",
             device="cpu"
         )
-
-        print("Embedding model loaded.")
-
+        print("Model loaded")
     return embedding_model
 
 
-# =====================================================
-# GREETINGS
-# =====================================================
+def safe_encode(texts):
+    model = get_model()
+    return model.encode(
+        texts,
+        batch_size=8,
+        show_progress_bar=False,
+        convert_to_numpy=True
+    )
 
-GREETINGS = {
-    "hi": "👋 Hello!",
-    "hello": "👋 Hello!",
-    "hey": "👋 Hi!",
-    "good morning": "☀️ Good morning"
-}
-
-# =====================================================
-# CLEAN TEXT
-# =====================================================
-
-def clean(text):
-    return re.sub(r"\s+", " ", text).strip()
-
-
-# =====================================================
+# ==============================
 # PDF EXTRACTION
-# =====================================================
+# ==============================
 
 def extract_pdf(path):
     try:
         doc = fitz.open(path)
-
-        pages = []
+        text = []
 
         for page in doc:
-            txt = page.get_text()
-
-            if txt:
-                pages.append(txt)
+            t = page.get_text()
+            if t:
+                text.append(t)
 
         doc.close()
-
-        return "\n".join(pages)
+        return "\n".join(text)
 
     except Exception as e:
         print("PDF ERROR:", e)
         return ""
 
-
-# =====================================================
-# VECTOR DATABASE
-# =====================================================
+# ==============================
+# VECTOR DB BUILDER (FIXED)
+# ==============================
 
 def build_db(text):
 
     global collection
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1200,
-        chunk_overlap=250
+        chunk_size=800,
+        chunk_overlap=100
     )
 
     chunks = splitter.split_text(text)
 
-    chunks = [
-        c for c in chunks
-        if len(c.strip()) > 80
-    ]
+    chunks = [c for c in chunks if len(c.strip()) > 80]
 
     if not chunks:
-        raise Exception("No usable text found")
+        raise Exception("No readable text found in PDF")
 
-    embeddings = get_model().encode(
-        chunks,
-        show_progress_bar=False
-    )
+    # LIMIT FOR RAILWAY MEMORY SAFETY
+    chunks = chunks[:40]
+
+    print("Chunks:", len(chunks))
+
+    embeddings = safe_encode(chunks)
 
     try:
         existing = collection.get()
-
         if existing["ids"]:
-            collection.delete(
-                ids=existing["ids"]
-            )
-    except Exception as e:
-        print("Delete warning:", e)
+            collection.delete(ids=existing["ids"])
+    except:
+        pass
 
     collection.add(
-        ids=[
-            str(i)
-            for i in range(len(chunks))
-        ],
+        ids=[str(i) for i in range(len(chunks))],
         documents=chunks,
-        embeddings=[
-            emb.tolist()
-            for emb in embeddings
-        ]
+        embeddings=embeddings.tolist()
     )
 
     return len(chunks)
 
-
-# =====================================================
+# ==============================
 # PROMPT
-# =====================================================
+# ==============================
 
 def build_prompt(question, context):
-
     return f"""
-You are a strict research assistant.
+You are a strict assistant.
 
-RULES:
-- Answer ONLY using the provided context.
-- Do not invent information.
-- If the answer does not exist in the document say:
-"I could not find this in the document."
+Only answer using the context below.
+If answer not found, say: "Not found in document."
 
 CONTEXT:
 {context}
@@ -188,201 +144,122 @@ QUESTION:
 ANSWER:
 """
 
-
-# =====================================================
+# ==============================
 # HOME
-# =====================================================
+# ==============================
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
-
-# =====================================================
-# UPLOAD PDF
-# =====================================================
+# ==============================
+# UPLOAD FIXED (MAIN FIX)
+# ==============================
 
 @app.route("/upload", methods=["POST"])
 def upload():
 
     try:
-
         if "file" not in request.files:
-            return jsonify({
-                "error": "No file field found"
-            }), 400
+            return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["file"]
 
         if file.filename == "":
-            return jsonify({
-                "error": "No file selected"
-            }), 400
+            return jsonify({"error": "No file selected"}), 400
 
-        if not file.filename.lower().endswith(".pdf"):
-            return jsonify({
-                "error": "Only PDF files are supported"
-            }), 400
+        # TEMP FILE SAFE
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            file.save(tmp.name)
+            path = tmp.name
 
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".pdf"
-        ) as temp_file:
+        print("PDF saved")
 
-            file.save(temp_file.name)
+        text = extract_pdf(path)
 
-            temp_path = temp_file.name
+        os.remove(path)
 
-        text = extract_pdf(temp_path)
-
-        try:
-            os.remove(temp_path)
-        except:
-            pass
-
-        if not text.strip():
-            return jsonify({
-                "error": "No readable text found in PDF"
-            }), 400
+        print("Text length:", len(text))
 
         start = time.time()
 
-        chunk_count = build_db(text)
+        chunks = build_db(text)
 
-        elapsed = round(
-            time.time() - start,
-            2
-        )
+        elapsed = round(time.time() - start, 2)
 
         return jsonify({
             "ready": True,
-            "chunks": chunk_count,
+            "chunks": chunks,
             "embed_time": elapsed
         })
 
     except Exception as e:
-
-        print("UPLOAD ERROR:", str(e))
+        import traceback
+        traceback.print_exc()
 
         return jsonify({
             "error": str(e)
         }), 500
 
-
-# =====================================================
-# ASK QUESTION
-# =====================================================
+# ==============================
+# ASK
+# ==============================
 
 @app.route("/ask", methods=["POST"])
 def ask():
 
     try:
-
         data = request.get_json()
-
-        question = data.get(
-            "question",
-            ""
-        ).strip()
+        question = data.get("question", "").strip()
 
         if not question:
-            return jsonify({
-                "answer": "Question is empty."
-            })
+            return jsonify({"answer": "Empty question"})
 
-        if question.lower() in GREETINGS:
-            return jsonify({
-                "answer": GREETINGS[
-                    question.lower()
-                ]
-            })
+        # CHECK EMPTY DB
+        if collection.count() == 0:
+            return jsonify({"answer": "Upload PDF first"})
 
-        existing = collection.get()
-
-        if len(existing["ids"]) == 0:
-            return jsonify({
-                "answer":
-                "❌ Please upload a PDF first."
-            })
-
-        query_embedding = get_model().encode(
-            [question]
-        )
+        query_embedding = safe_encode([question])
 
         results = collection.query(
             query_embeddings=query_embedding.tolist(),
-            n_results=6
+            n_results=5
         )
 
-        documents = results["documents"][0]
-
-        context = "\n\n".join(
-            documents
-        )[:8000]
-
-        start = time.time()
+        docs = results["documents"][0]
+        context = "\n\n".join(docs)[:6000]
 
         completion = groq_client.chat.completions.create(
             model=MODEL,
-            temperature=0.2,
-            messages=[
-                {
-                    "role": "user",
-                    "content": build_prompt(
-                        question,
-                        context
-                    )
-                }
-            ]
-        )
-
-        answer = completion.choices[0].message.content
-
-        elapsed = round(
-            time.time() - start,
-            2
+            messages=[{
+                "role": "user",
+                "content": build_prompt(question, context)
+            }],
+            temperature=0.2
         )
 
         return jsonify({
-            "answer": answer,
-            "response_time": elapsed
+            "answer": completion.choices[0].message.content
         })
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
 
-        print("ASK ERROR:", str(e))
+        return jsonify({"answer": str(e)})
 
-        return jsonify({
-            "answer": str(e)
-        })
-
-
-# =====================================================
+# ==============================
 # HEALTH
-# =====================================================
+# ==============================
 
 @app.route("/health")
 def health():
-    return jsonify({
-        "status": "running"
-    })
+    return jsonify({"status": "running"})
 
-
-# =====================================================
+# ==============================
 # MAIN
-# =====================================================
+# ==============================
 
 if __name__ == "__main__":
-
-    port = int(
-        os.environ.get(
-            "PORT",
-            5000
-        )
-    )
-
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=False
-    )
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
