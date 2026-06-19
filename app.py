@@ -151,15 +151,27 @@ def send_otp(email, otp):
 
 
 def store_otp(email, otp):
-    OTP_STORAGE[email] = {"otp": otp, "expires": time.time() + 600}
+    OTP_STORAGE[email] = {"otp": otp, "expires": time.time() + 600, "attempts": 0}
 
 def verify_otp(email, otp):
     if email in OTP_STORAGE:
         stored = OTP_STORAGE[email]
-        if time.time() < stored["expires"] and stored["otp"] == otp:
+
+        if time.time() > stored["expires"]:
+            return "expired"
+
+        if stored["otp"] == otp:
             del OTP_STORAGE[email]
-            return True
-    return False
+            return "valid"
+
+        stored["attempts"] += 1
+
+        if stored["attempts"] >= 3:
+            return "resend"
+
+        return "invalid"
+
+    return "invalid"
 
 # ==========================
 # AUTHENTICATION ROUTES
@@ -217,13 +229,26 @@ def verify_reset_otp():
     data = request.get_json()
     email = data.get("email", "").strip().lower()
     otp = data.get("otp", "").strip()
+
     if not email or not otp:
         return jsonify({"error": "All fields required"}), 400
+
     if verify_otp(email, otp):
         session["reset_verified"] = email
         return jsonify({"success": True, "message": "OTP verified"})
-    else:
-        return jsonify({"error": "Invalid or expired OTP"}), 401
+
+    # Wrong OTP → generate and resend a new OTP
+    new_otp = generate_otp()
+
+    if send_otp(email, new_otp):
+        store_otp(email, new_otp)
+        return jsonify({
+            "error": "Invalid OTP. A new OTP has been sent to your email."
+        }), 401
+
+    return jsonify({
+        "error": "Invalid OTP and failed to resend a new OTP."
+    }), 500
 
 @app.route("/reset_password", methods=["POST"])
 def reset_password():
@@ -359,4 +384,4 @@ def health():
 # ==========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False) 
