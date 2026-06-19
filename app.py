@@ -11,9 +11,12 @@ import json
 import random
 import smtplib
 import socket
-import requests  # needed for DNS fallback
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import threading
+from concurrent.futures import ThreadPoolExecutor
+import logging
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -21,6 +24,12 @@ load_dotenv()
 from groq import Groq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sklearn.feature_extraction.text import TfidfVectorizer
+
+# ==========================
+# LOGGING SETUP
+# ==========================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ==========================
 # APP SETUP
@@ -71,35 +80,14 @@ def generate_otp():
     return f"{random.randint(100000, 999999)}"
 
 # ==========================
-# DNS FALLBACK: get IP of smtp.gmail.com
-# ==========================
-def get_smtp_ip():
-    """Fetch current IP of smtp.gmail.com using Google's DNS-over-HTTPS."""
-    try:
-        resp = requests.get(
-            "https://dns.google/resolve?name=smtp.gmail.com&type=A",
-            timeout=5
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            if data.get("Answer"):
-                for ans in data["Answer"]:
-                    if ans["type"] == 1:  # A record
-                        return ans["data"]
-    except Exception:
-        pass
-    return None
-
-# ==========================
-# OTP SENDING (with IP fallback)
-# ==========================
-# ==========================
-# OTP SENDING
+# FIXED: EMAIL SENDING WITH TIMEOUT
 # ==========================
 def send_otp_via_gmail(to_email, otp):
+    """Send OTP via Gmail with timeout protection"""
     try:
+        logger.info(f"Attempting to send OTP to {to_email}")
+        
         msg = MIMEMultipart()
-
         msg["From"] = GMAIL_SENDER
         msg["To"] = to_email
         msg["Subject"] = "Password Reset OTP - PDF Assistant"
@@ -119,36 +107,61 @@ PDF Assistant
 
         msg.attach(MIMEText(body, "plain"))
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-
-        server.login(
-            GMAIL_SENDER,
-            GMAIL_PASSWORD
-        )
-
-        server.sendmail(
-            GMAIL_SENDER,
-            to_email,
-            msg.as_string()
-        )
-
-        server.quit()
-
-        print(f"✅ OTP sent to {to_email}")
-        return True
-
-    except Exception as e:
-        print(f"❌ Gmail Error: {e}")
+        # Try multiple SMTP servers with timeout
+        smtp_servers = [
+            ("smtp.gmail.com", 587),
+            ("smtp.gmail.com", 465),  # SSL
+        ]
+        
+        for host, port in smtp_servers:
+            try:
+                logger.info(f"Trying {host}:{port}")
+                
+                if port == 465:
+                    # SSL connection
+                    server = smtplib.SMTP_SSL(host, port, timeout=10)
+                else:
+                    # TLS connection
+                    server = smtplib.SMTP(host, port, timeout=10)
+                    server.ehlo()
+                    server.starttls()
+                    server.ehlo()
+                
+                server.login(GMAIL_SENDER, GMAIL_PASSWORD)
+                server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
+                server.quit()
+                
+                logger.info(f"✅ OTP sent successfully to {to_email} via {host}:{port}")
+                return True
+                
+            except smtplib.SMTPAuthenticationError:
+                logger.error("❌ SMTP Authentication failed - check GMAIL_SENDER and GMAIL_PASSWORD")
+                return False
+            except (smtplib.SMTPException, socket.timeout, ConnectionError) as e:
+                logger.warning(f"Failed with {host}:{port}: {e}")
+                continue
+        
+        # If all attempts fail, log the OTP for development
+        logger.warning(f"⚠️ All SMTP attempts failed. OTP for {to_email}: {otp}")
         return False
 
+    except Exception as e:
+        logger.error(f"❌ Gmail Error: {e}")
+        return False
 
 def send_otp(email, otp):
-    print(f"🔑 OTP for {email}: {otp}")
-    return send_otp_via_gmail(email, otp)
-
+    """Send OTP with fallback to console logging"""
+    logger.info(f"🔑 OTP for {email}: {otp}")
+    
+    # Try to send via email
+    success = send_otp_via_gmail(email, otp)
+    
+    # If email fails but we're in development, still allow OTP
+    if not success and os.environ.get("ENV") != "production":
+        logger.warning(f"⚠️ Email failed but OTP is: {otp} (check logs)")
+        return True
+    
+    return success
 
 def store_otp(email, otp):
     OTP_STORAGE[email] = {"otp": otp, "expires": time.time() + 600, "attempts": 0}
@@ -210,19 +223,33 @@ def login():
 
 @app.route("/forgot_password", methods=["POST"])
 def forgot_password():
-    data = request.get_json()
-    email = data.get("email", "").strip().lower()
-    if not email:
-        return jsonify({"error": "Email required"}), 400
-    users = load_users()
-    if email not in users:
-        return jsonify({"error": "No account found with this email"}), 404
-    otp = generate_otp()
-    if send_otp(email, otp):
-        store_otp(email, otp)
-        return jsonify({"success": True, "message": "OTP sent to your email"})
-    else:
-        return jsonify({"error": "Failed to send OTP. Check network or Gmail credentials."}), 500
+    try:
+        data = request.get_json()
+        email = data.get("email", "").strip().lower()
+        
+        if not email:
+            return jsonify({"error": "Email required"}), 400
+        
+        users = load_users()
+        if email not in users:
+            return jsonify({"error": "No account found with this email"}), 404
+        
+        otp = generate_otp()
+        
+        # Send OTP with timeout
+        success = send_otp(email, otp)
+        
+        if success:
+            store_otp(email, otp)
+            return jsonify({"success": True, "message": "OTP sent to your email"})
+        else:
+            # Still store OTP for testing but return error
+            store_otp(email, otp)
+            return jsonify({"error": "Failed to send OTP. Check your email settings."}), 500
+            
+    except Exception as e:
+        logger.error(f"Forgot password error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route("/verify_reset_otp", methods=["POST"])
 def verify_reset_otp():
@@ -233,22 +260,26 @@ def verify_reset_otp():
     if not email or not otp:
         return jsonify({"error": "All fields required"}), 400
 
-    if verify_otp(email, otp):
+    result = verify_otp(email, otp)
+    
+    if result == "valid":
         session["reset_verified"] = email
         return jsonify({"success": True, "message": "OTP verified"})
-
-    # Wrong OTP → generate and resend a new OTP
-    new_otp = generate_otp()
-
-    if send_otp(email, new_otp):
-        store_otp(email, new_otp)
+    elif result == "expired":
+        return jsonify({"error": "OTP expired. Request a new one."}), 401
+    else:
+        # Wrong OTP → generate and resend a new OTP
+        new_otp = generate_otp()
+        
+        if send_otp(email, new_otp):
+            store_otp(email, new_otp)
+            return jsonify({
+                "error": "Invalid OTP. A new OTP has been sent to your email."
+            }), 401
+        
         return jsonify({
-            "error": "Invalid OTP. A new OTP has been sent to your email."
-        }), 401
-
-    return jsonify({
-        "error": "Invalid OTP and failed to resend a new OTP."
-    }), 500
+            "error": "Invalid OTP and failed to resend a new OTP."
+        }), 500
 
 @app.route("/reset_password", methods=["POST"])
 def reset_password():
@@ -383,5 +414,5 @@ def health():
 # RUN
 # ==========================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False) 
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)

@@ -1,1 +1,1 @@
-web: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300
+web: gunicorn --timeout 120 --workers 2 --bind 0.0.0.0:${PORT:-8080} app:app

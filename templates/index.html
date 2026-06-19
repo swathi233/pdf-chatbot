@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Research Assistant</title>
+    <!-- Font & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -20,16 +25,9 @@
         }
 
         /* scrollbar */
-        ::-webkit-scrollbar {
-            width: 5px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0f1a2b;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #2d4b7a;
-            border-radius: 8px;
-        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #0f1a2b; }
+        ::-webkit-scrollbar-thumb { background: #2d4b7a; border-radius: 8px; }
 
         .app {
             display: grid;
@@ -63,10 +61,10 @@
             align-items: center;
             gap: 8px;
         }
-        .logo span {
-            font-size: 28px;
+        .logo i {
             -webkit-text-fill-color: initial;
             color: #8ab4ff;
+            font-size: 28px;
         }
 
         .card {
@@ -170,6 +168,10 @@
             transition: 0.2s;
             margin-top: 6px;
             box-shadow: 0 4px 12px #1e4b8a55;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         .btn-primary:hover {
             transform: translateY(-2px);
@@ -289,6 +291,9 @@
             font-weight: 500;
             color: #b8cef0;
             border: 1px solid #2a4b7a;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .chat-messages {
@@ -374,6 +379,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 8px;
         }
         .send-btn:hover {
             transform: translateY(-2px);
@@ -520,62 +526,62 @@
 </head>
 <body>
 <div class="app">
-    <!-- LEFT -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
-        <div class="logo"><span>📄</span> PDF Chat</div>
+        <div class="logo"><i class="fas fa-file-pdf"></i> PDF Chat</div>
 
         <div class="card">
-            <h3>🔐 Account</h3>
+            <h3><i class="fas fa-lock"></i> Account</h3>
             <div class="auth-toggle">
-                <button class="toggle-btn active" onclick="showAuthForm('login')">Login</button>
-                <button class="toggle-btn" onclick="showAuthForm('signup')">Sign Up</button>
+                <button class="toggle-btn active" onclick="showAuthForm('login')"><i class="fas fa-sign-in-alt"></i> Login</button>
+                <button class="toggle-btn" onclick="showAuthForm('signup')"><i class="fas fa-user-plus"></i> Sign Up</button>
             </div>
 
             <div id="loginForm" class="auth-form active">
                 <input type="email" id="loginEmail" placeholder="Email address">
                 <input type="password" id="loginPassword" placeholder="Password">
                 <div class="forgot-link"><a onclick="showForgotPassword()">Forgot password?</a></div>
-                <button class="btn-primary" onclick="login()">Login</button>
+                <button class="btn-primary" onclick="login()"><i class="fas fa-arrow-right-to-bracket"></i> Login</button>
             </div>
 
             <div id="signupForm" class="auth-form">
                 <input type="email" id="signupEmail" placeholder="Email address">
                 <input type="password" id="signupPassword" placeholder="Password (min 6 chars)">
-                <button class="btn-primary" onclick="signup()">Create account</button>
+                <button class="btn-primary" onclick="signup()"><i class="fas fa-user-plus"></i> Create account</button>
             </div>
 
             <div id="userInfo" class="user-info">
                 <span class="user-email" id="userDisplay"></span>
-                <button class="logout-icon" onclick="logout()">Logout</button>
+                <button class="logout-icon" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
             </div>
         </div>
 
         <div class="card">
-            <h3>📄 Upload PDF</h3>
+            <h3><i class="fas fa-upload"></i> Upload PDF</h3>
             <div class="file-upload-area">
                 <input type="file" id="file" accept=".pdf" disabled/>
-                <button class="btn-primary" onclick="uploadFile()" id="uploadBtn" disabled>Upload & Process</button>
+                <button class="btn-primary" onclick="uploadFile()" id="uploadBtn" disabled><i class="fas fa-cloud-upload-alt"></i> Upload & Process</button>
             </div>
         </div>
 
-        <div id="status">🔑 Login to get started.</div>
+        <div id="status"><i class="fas fa-info-circle"></i> 🔑 Login to get started.</div>
     </div>
 
-    <!-- RIGHT -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
         <div class="chat-header">
-            <h2>Research Assistant</h2>
-            <span class="badge" id="userBadge">🔒 Not logged in</span>
+            <h2><i class="fas fa-robot"></i> Research Assistant</h2>
+            <span class="badge" id="userBadge"><i class="fas fa-lock"></i> Not logged in</span>
         </div>
 
         <div class="chat-messages" id="chat">
-            <div class="msg bot">👋 Login to upload and chat with your PDFs.</div>
+            <div class="msg bot"><i class="fas fa-robot"></i> 👋 Login to upload and chat with your PDFs.</div>
         </div>
 
         <div class="chat-input-area">
             <div class="input-row">
                 <textarea id="q" placeholder="Ask anything..." disabled></textarea>
-                <button class="send-btn" id="sendBtn" disabled onclick="ask()">Send</button>
+                <button class="send-btn" id="sendBtn" disabled onclick="ask()"><i class="fas fa-paper-plane"></i> Send</button>
             </div>
         </div>
     </div>
@@ -584,7 +590,7 @@
 <!-- FORGOT MODAL -->
 <div id="forgotModal" class="modal">
     <div class="modal-content">
-        <h3>🔑 Reset Password</h3>
+        <h3><i class="fas fa-key"></i> Reset Password</h3>
         <div class="step-indicator">
             <span id="step1Indicator" class="active">1. Email</span>
             <span id="step2Indicator">2. OTP</span>
@@ -594,14 +600,14 @@
         <div id="step1">
             <p style="color:#9bb4d6; font-size:14px; margin-bottom:14px;">Enter your registered email to receive a reset OTP.</p>
             <input type="email" id="resetEmail" placeholder="Your email">
-            <button class="btn-primary" onclick="sendOTP()" id="sendOtpBtn">Send OTP</button>
+            <button class="btn-primary" onclick="sendOTP()" id="sendOtpBtn"><i class="fas fa-envelope"></i> Send OTP</button>
         </div>
 
         <div id="step2" style="display:none;">
             <p style="color:#9bb4d6; font-size:14px; margin-bottom:14px;">Enter the 6-digit OTP sent to your email.</p>
             <input type="text" id="otpCode" placeholder="6-digit OTP" maxlength="6">
-            <button class="btn-primary" onclick="verifyOTP()" id="verifyOtpBtn">Verify OTP</button>
-            <div class="resend-link"><a onclick="resendOTP()">🔄 Resend OTP</a></div>
+            <button class="btn-primary" onclick="verifyOTP()" id="verifyOtpBtn"><i class="fas fa-check-circle"></i> Verify OTP</button>
+            <div class="resend-link"><a onclick="resendOTP()"><i class="fas fa-redo"></i> Resend OTP</a></div>
             <div id="otpStatus" class="otp-status"></div>
         </div>
 
@@ -609,11 +615,11 @@
             <p style="color:#9bb4d6; font-size:14px; margin-bottom:14px;">OTP verified. Set a new password.</p>
             <input type="password" id="newPassword" placeholder="New password (min 6 chars)">
             <input type="password" id="confirmPassword" placeholder="Confirm password">
-            <button class="btn-primary" onclick="resetPassword()" id="resetPasswordBtn">Reset Password</button>
+            <button class="btn-primary" onclick="resetPassword()" id="resetPasswordBtn"><i class="fas fa-save"></i> Reset Password</button>
             <div id="resetStatus" class="otp-status"></div>
         </div>
 
-        <div class="modal-cancel"><a onclick="closeModal()">Cancel</a></div>
+        <div class="modal-cancel"><a onclick="closeModal()"><i class="fas fa-times"></i> Cancel</a></div>
     </div>
 </div>
 
@@ -656,21 +662,21 @@
         if (authenticated) {
             userInfo.classList.add("show");
             userDisplay.textContent = user;
-            userBadge.textContent = `✅ ${user.substring(0, 16)}${user.length > 16 ? '…' : ''}`;
+            userBadge.innerHTML = `<i class="fas fa-check-circle" style="color:#4ade80;"></i> ${user.substring(0, 16)}${user.length > 16 ? '…' : ''}`;
             fileInput.disabled = false;
             uploadBtn.disabled = false;
             sendBtn.disabled = false;
             input.disabled = false;
-            statusDiv.innerHTML = "✅ Logged in. Upload a PDF to begin.";
+            statusDiv.innerHTML = '<i class="fas fa-check-circle" style="color:#4ade80;"></i> Logged in. Upload a PDF to begin.';
             addBotMessage("✅ Logged in successfully!");
         } else {
             userInfo.classList.remove("show");
-            userBadge.textContent = "🔒 Not logged in";
+            userBadge.innerHTML = '<i class="fas fa-lock"></i> Not logged in';
             fileInput.disabled = true;
             uploadBtn.disabled = true;
             sendBtn.disabled = true;
             input.disabled = true;
-            statusDiv.innerHTML = "🔑 Login to get started.";
+            statusDiv.innerHTML = '<i class="fas fa-info-circle"></i> 🔑 Login to get started.';
         }
     }
 
@@ -693,8 +699,8 @@
     async function login() {
         const email = document.getElementById("loginEmail").value.trim().toLowerCase();
         const password = document.getElementById("loginPassword").value.trim();
-        if (!email || !password) { statusDiv.innerHTML = "❌ Please fill all fields"; return; }
-        statusDiv.innerHTML = "Logging in…";
+        if (!email || !password) { statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Please fill all fields'; return; }
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in…';
         try {
             const res = await fetch("/login", {
                 method: "POST",
@@ -703,22 +709,22 @@
             });
             const data = await res.json();
             if (data.success) {
-                statusDiv.innerHTML = "✅ Login successful!";
+                statusDiv.innerHTML = '<i class="fas fa-check-circle" style="color:#4ade80;"></i> ✅ Login successful!';
                 await checkAuth();
                 document.getElementById("loginEmail").value = "";
                 document.getElementById("loginPassword").value = "";
             } else {
-                statusDiv.innerHTML = `❌ ${data.error}`;
+                statusDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ❌ ${data.error}`;
             }
-        } catch (e) { statusDiv.innerHTML = "❌ Login failed"; }
+        } catch (e) { statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Login failed'; }
     }
 
     async function signup() {
         const email = document.getElementById("signupEmail").value.trim().toLowerCase();
         const password = document.getElementById("signupPassword").value.trim();
-        if (!email || !password) { statusDiv.innerHTML = "❌ Please fill all fields"; return; }
-        if (password.length < 6) { statusDiv.innerHTML = "❌ Password must be at least 6 characters"; return; }
-        statusDiv.innerHTML = "Creating account…";
+        if (!email || !password) { statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Please fill all fields'; return; }
+        if (password.length < 6) { statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Password must be at least 6 characters'; return; }
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account…';
         try {
             const res = await fetch("/signup", {
                 method: "POST",
@@ -727,14 +733,14 @@
             });
             const data = await res.json();
             if (data.success) {
-                statusDiv.innerHTML = "✅ Signup successful!";
+                statusDiv.innerHTML = '<i class="fas fa-check-circle" style="color:#4ade80;"></i> ✅ Signup successful!';
                 await checkAuth();
                 document.getElementById("signupEmail").value = "";
                 document.getElementById("signupPassword").value = "";
             } else {
-                statusDiv.innerHTML = `❌ ${data.error}`;
+                statusDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ❌ ${data.error}`;
             }
-        } catch (e) { statusDiv.innerHTML = "❌ Signup failed"; }
+        } catch (e) { statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Signup failed'; }
     }
 
     async function logout() {
@@ -744,7 +750,7 @@
             currentUser = "";
             updateUIForAuth(false, "");
             addBotMessage("🔒 Logged out.");
-            chat.innerHTML = '<div class="msg bot">👋 Login to upload and chat with your PDFs.</div>';
+            chat.innerHTML = '<div class="msg bot"><i class="fas fa-robot"></i> 👋 Login to upload and chat with your PDFs.</div>';
         } catch (e) { console.log("Logout error", e); }
     }
 
@@ -752,7 +758,7 @@
     function add(text, type) {
         const div = document.createElement("div");
         div.className = "msg " + type;
-        div.textContent = text;
+        div.innerHTML = text;
         chat.appendChild(div);
         chat.scrollTop = chat.scrollHeight;
         return div;
@@ -760,29 +766,29 @@
     function addBotMessage(text) { add(text, "bot"); }
 
     async function uploadFile() {
-        if (!isAuthenticated) { statusDiv.innerHTML = "❌ Please login first"; return; }
+        if (!isAuthenticated) { statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Please login first'; return; }
         const file = document.getElementById("file").files[0];
         if (!file) { alert("Select a PDF"); return; }
-        statusDiv.innerHTML = "⏳ Processing PDF…";
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ⏳ Processing PDF…';
         const fd = new FormData();
         fd.append("file", file);
         try {
             const res = await fetch("/upload", { method: "POST", body: fd });
             const data = await res.json();
-            if (data.error) { statusDiv.innerHTML = "❌ " + data.error; return; }
-            statusDiv.innerHTML = `✅ PDF Ready · ${data.chunks} chunks`;
+            if (data.error) { statusDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ❌ ${data.error}`; return; }
+            statusDiv.innerHTML = `<i class="fas fa-check-circle" style="color:#4ade80;"></i> ✅ PDF Ready · ${data.chunks} chunks`;
             addBotMessage("✅ PDF uploaded and indexed.");
-        } catch (e) { statusDiv.innerHTML = "❌ Upload failed"; }
+        } catch (e) { statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Upload failed'; }
     }
 
     async function ask() {
         if (!isAuthenticated) { addBotMessage("❌ Please login first"); return; }
         const q = input.value.trim();
         if (!q) return;
-        add(q, "user");
+        add(`<i class="fas fa-user"></i> ${q}`, "user");
         input.value = "";
         input.style.height = "56px";
-        const bot = add("Thinking…", "bot");
+        const bot = add('<i class="fas fa-spinner fa-spin"></i> Thinking…', "bot");
         try {
             const res = await fetch("/ask", {
                 method: "POST",
@@ -790,8 +796,8 @@
                 body: JSON.stringify({ question: q })
             });
             const data = await res.json();
-            bot.textContent = data.answer || "No answer";
-        } catch (e) { bot.textContent = "Error contacting server."; }
+            bot.innerHTML = `<i class="fas fa-robot"></i> ${data.answer || "No answer"}`;
+        } catch (e) { bot.innerHTML = '<i class="fas fa-exclamation-circle"></i> Error contacting server.'; }
     }
 
     // input auto-resize + enter
@@ -837,24 +843,24 @@
 
     function showOTPStatus(msg, type) {
         const el = document.getElementById("otpStatus");
-        el.textContent = msg;
+        el.innerHTML = msg;
         el.className = "otp-status show" + (type ? " " + type : "");
     }
     function showResetStatus(msg, type) {
         const el = document.getElementById("resetStatus");
-        el.textContent = msg;
+        el.innerHTML = msg;
         el.className = "otp-status show" + (type ? " " + type : "");
     }
 
     async function sendOTP() {
         const email = document.getElementById("resetEmail").value.trim().toLowerCase();
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            showOTPStatus("Please enter a valid email", "error");
+            showOTPStatus('<i class="fas fa-exclamation-circle"></i> Please enter a valid email', "error");
             return;
         }
         resetEmail = email;
         document.getElementById("sendOtpBtn").disabled = true;
-        showOTPStatus("Sending OTP…", "");
+        showOTPStatus('<i class="fas fa-spinner fa-spin"></i> Sending OTP…', "");
         try {
             const res = await fetch("/forgot_password", {
                 method: "POST",
@@ -863,24 +869,24 @@
             });
             const data = await res.json();
             if (data.success) {
-                showOTPStatus("✅ OTP sent! Check your email.", "success");
+                showOTPStatus('<i class="fas fa-check-circle"></i> ✅ OTP sent! Check your email.', "success");
                 document.getElementById("step1").style.display = "none";
                 document.getElementById("step2").style.display = "block";
                 updateStepIndicators(2);
                 document.getElementById("otpCode").focus();
             } else {
-                showOTPStatus("❌ " + data.error, "error");
+                showOTPStatus(`<i class="fas fa-exclamation-circle"></i> ❌ ${data.error}`, "error");
                 document.getElementById("sendOtpBtn").disabled = false;
             }
         } catch (e) {
-            showOTPStatus("❌ Failed to send OTP", "error");
+            showOTPStatus('<i class="fas fa-exclamation-circle"></i> ❌ Failed to send OTP', "error");
             document.getElementById("sendOtpBtn").disabled = false;
         }
     }
 
     async function resendOTP() {
-        if (!resetEmail) { showOTPStatus("Enter email first", "error"); return; }
-        showOTPStatus("Resending…", "");
+        if (!resetEmail) { showOTPStatus('<i class="fas fa-exclamation-circle"></i> Enter email first', "error"); return; }
+        showOTPStatus('<i class="fas fa-spinner fa-spin"></i> Resending…', "");
         document.getElementById("sendOtpBtn").disabled = true;
         try {
             const res = await fetch("/forgot_password", {
@@ -890,24 +896,24 @@
             });
             const data = await res.json();
             if (data.success) {
-                showOTPStatus("✅ New OTP sent!", "success");
+                showOTPStatus('<i class="fas fa-check-circle"></i> ✅ New OTP sent!', "success");
                 document.getElementById("otpCode").value = "";
                 document.getElementById("otpCode").focus();
             } else {
-                showOTPStatus("❌ " + data.error, "error");
+                showOTPStatus(`<i class="fas fa-exclamation-circle"></i> ❌ ${data.error}`, "error");
             }
-        } catch (e) { showOTPStatus("❌ Failed to resend", "error"); }
+        } catch (e) { showOTPStatus('<i class="fas fa-exclamation-circle"></i> ❌ Failed to resend', "error"); }
         document.getElementById("sendOtpBtn").disabled = false;
     }
 
     async function verifyOTP() {
         const otp = document.getElementById("otpCode").value.trim();
         if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
-            showOTPStatus("Enter a valid 6-digit OTP", "error");
+            showOTPStatus('<i class="fas fa-exclamation-circle"></i> Enter a valid 6-digit OTP', "error");
             return;
         }
         document.getElementById("verifyOtpBtn").disabled = true;
-        showOTPStatus("Verifying…", "");
+        showOTPStatus('<i class="fas fa-spinner fa-spin"></i> Verifying…', "");
         try {
             const res = await fetch("/verify_reset_otp", {
                 method: "POST",
@@ -917,33 +923,33 @@
             const data = await res.json();
             if (data.success) {
                 otpVerified = true;
-                showOTPStatus("✅ OTP verified!", "success");
+                showOTPStatus('<i class="fas fa-check-circle"></i> ✅ OTP verified!', "success");
                 setTimeout(() => {
                     document.getElementById("step2").style.display = "none";
                     document.getElementById("step3").style.display = "block";
                     updateStepIndicators(3);
                     document.getElementById("newPassword").focus();
-                    showResetStatus("✅ OTP verified. Set new password.", "success");
+                    showResetStatus('<i class="fas fa-check-circle"></i> ✅ OTP verified. Set new password.', "success");
                 }, 800);
             } else {
-                showOTPStatus("❌ " + (data.error || "Invalid OTP"), "error");
+                showOTPStatus(`<i class="fas fa-exclamation-circle"></i> ❌ ${data.error || "Invalid OTP"}`, "error");
                 document.getElementById("verifyOtpBtn").disabled = false;
             }
         } catch (e) {
-            showOTPStatus("❌ Verification failed", "error");
+            showOTPStatus('<i class="fas fa-exclamation-circle"></i> ❌ Verification failed', "error");
             document.getElementById("verifyOtpBtn").disabled = false;
         }
     }
 
     async function resetPassword() {
-        if (!otpVerified) { showResetStatus("❌ Verify OTP first", "error"); return; }
+        if (!otpVerified) { showResetStatus('<i class="fas fa-exclamation-circle"></i> ❌ Verify OTP first', "error"); return; }
         const newPw = document.getElementById("newPassword").value.trim();
         const confirmPw = document.getElementById("confirmPassword").value.trim();
-        if (!newPw || !confirmPw) { showResetStatus("❌ Fill all fields", "error"); return; }
-        if (newPw.length < 6) { showResetStatus("❌ Min 6 characters", "error"); return; }
-        if (newPw !== confirmPw) { showResetStatus("❌ Passwords don't match", "error"); return; }
+        if (!newPw || !confirmPw) { showResetStatus('<i class="fas fa-exclamation-circle"></i> ❌ Fill all fields', "error"); return; }
+        if (newPw.length < 6) { showResetStatus('<i class="fas fa-exclamation-circle"></i> ❌ Min 6 characters', "error"); return; }
+        if (newPw !== confirmPw) { showResetStatus('<i class="fas fa-exclamation-circle"></i> ❌ Passwords don\'t match', "error"); return; }
         document.getElementById("resetPasswordBtn").disabled = true;
-        showResetStatus("Resetting…", "");
+        showResetStatus('<i class="fas fa-spinner fa-spin"></i> Resetting…', "");
         try {
             const res = await fetch("/reset_password", {
                 method: "POST",
@@ -952,19 +958,19 @@
             });
             const data = await res.json();
             if (data.success) {
-                showResetStatus("✅ Password reset! Redirecting…", "success");
+                showResetStatus('<i class="fas fa-check-circle"></i> ✅ Password reset! Redirecting…', "success");
                 setTimeout(() => {
                     closeModal();
                     document.getElementById("loginEmail").value = resetEmail;
                     document.getElementById("loginPassword").focus();
-                    statusDiv.innerHTML = "✅ Password reset! Please login.";
+                    statusDiv.innerHTML = '<i class="fas fa-check-circle" style="color:#4ade80;"></i> ✅ Password reset! Please login.';
                 }, 1500);
             } else {
-                showResetStatus("❌ " + data.error, "error");
+                showResetStatus(`<i class="fas fa-exclamation-circle"></i> ❌ ${data.error}`, "error");
                 document.getElementById("resetPasswordBtn").disabled = false;
             }
         } catch (e) {
-            showResetStatus("❌ Reset failed", "error");
+            showResetStatus('<i class="fas fa-exclamation-circle"></i> ❌ Reset failed', "error");
             document.getElementById("resetPasswordBtn").disabled = false;
         }
     }
