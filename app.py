@@ -93,83 +93,62 @@ def get_smtp_ip():
 # ==========================
 # OTP SENDING (with IP fallback)
 # ==========================
+# ==========================
+# OTP SENDING
+# ==========================
 def send_otp_via_gmail(to_email, otp):
-    if not GMAIL_SENDER or not GMAIL_PASSWORD:
-        print("❌ Gmail not configured")
+    try:
+        msg = MIMEMultipart()
+
+        msg["From"] = GMAIL_SENDER
+        msg["To"] = to_email
+        msg["Subject"] = "Password Reset OTP - PDF Assistant"
+
+        body = f"""
+Hello,
+
+Your OTP for verification is:
+
+{otp}
+
+This OTP is valid for 10 minutes.
+
+Regards,
+PDF Assistant
+"""
+
+        msg.attach(MIMEText(body, "plain"))
+
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+
+        server.login(
+            GMAIL_SENDER,
+            GMAIL_PASSWORD
+        )
+
+        server.sendmail(
+            GMAIL_SENDER,
+            to_email,
+            msg.as_string()
+        )
+
+        server.quit()
+
+        print(f"✅ OTP sent to {to_email}")
+        return True
+
+    except Exception as e:
+        print(f"❌ Gmail Error: {e}")
         return False
 
-    # Build the email
-    msg = MIMEMultipart()
-    msg['From'] = GMAIL_SENDER
-    msg['To'] = to_email
-    msg['Subject'] = "Password Reset OTP - PDF Assistant"
-    body = f"""
-    <html>
-    <body style="font-family: Arial; max-width:600px; margin:auto;">
-        <h2 style="color:#667eea;">Password Reset OTP</h2>
-        <p>Your OTP is:</p>
-        <h1 style="font-size:32px; letter-spacing:5px; background:#f0f0f0; padding:15px; border-radius:8px;">{otp}</h1>
-        <p><i>Valid for 10 minutes.</i></p>
-        <p>If you didn't request this, ignore this email.</p>
-    </body>
-    </html>
-    """
-    msg.attach(MIMEText(body, 'html'))
-
-    smtp_host = "smtp.gmail.com"
-    smtp_ports = [587, 465]  # TLS then SSL
-
-    for port in smtp_ports:
-        try:
-            # Try with hostname first
-            if port == 587:
-                server = smtplib.SMTP(smtp_host, port, timeout=10)
-                server.starttls()
-            else:
-                server = smtplib.SMTP_SSL(smtp_host, port, timeout=10)
-
-            server.login(GMAIL_SENDER, GMAIL_PASSWORD)
-            server.send_message(msg)
-            server.quit()
-            print(f"✅ OTP sent via Gmail to {to_email} (hostname)")
-            return True
-
-        except (socket.gaierror, socket.error) as dns_err:
-            # DNS resolution failed – try IP fallback
-            print(f"⚠️ Hostname failed: {dns_err}. Trying IP fallback...")
-            ip = get_smtp_ip()
-            if not ip:
-                print("❌ Could not fetch IP for smtp.gmail.com")
-                continue
-            try:
-                if port == 587:
-                    server = smtplib.SMTP(ip, port, timeout=10)
-                    server.ehlo(smtp_host)   # EHLO with proper hostname
-                    server.starttls()
-                    server.ehlo(smtp_host)
-                else:
-                    server = smtplib.SMTP_SSL(ip, port, timeout=10)
-                    server.ehlo(smtp_host)
-
-                server.login(GMAIL_SENDER, GMAIL_PASSWORD)
-                server.send_message(msg)
-                server.quit()
-                print(f"✅ OTP sent via Gmail to {to_email} (IP fallback: {ip})")
-                return True
-            except Exception as e:
-                print(f"❌ IP fallback failed: {e}")
-                continue
-        except Exception as e:
-            print(f"❌ SMTP error on port {port}: {e}")
-            continue
-
-    print("❌ All connection attempts failed.")
-    return False
 
 def send_otp(email, otp):
-    # Debug – you can remove this line if you don't want it
     print(f"🔑 OTP for {email}: {otp}")
     return send_otp_via_gmail(email, otp)
+
 
 def store_otp(email, otp):
     OTP_STORAGE[email] = {"otp": otp, "expires": time.time() + 600}
