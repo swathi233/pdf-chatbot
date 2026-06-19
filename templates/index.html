@@ -1,692 +1,990 @@
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-<meta charset="UTF-8">
-
-<meta
-name="viewport"
-content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-/>
-
-<title>PDF Research Assistant</title>
-
-<style>
-
-:root{
---bg:#07111f;
---panel:#0f1b2d;
---card:#14233b;
---primary:#3b82f6;
---border:#223552;
---text:#ffffff;
---muted:#9bb4d6;
-}
-
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-}
-
-html,
-body{
-width:100%;
-height:100%;
-overflow:hidden;
-font-family:Arial,sans-serif;
-background:linear-gradient(
-135deg,
-#07111f,
-#0f172a
-);
-color:white;
-}
-
-/* ========================================= */
-/* MAIN CONTAINER */
-/* ========================================= */
-
-.container{
-display:grid;
-grid-template-columns:360px 1fr;
-height:100dvh;
-width:100%;
-overflow:hidden;
-}
-
-/* ========================================= */
-/* LEFT PANEL */
-/* ========================================= */
-
-.left{
-background:var(--panel);
-padding:24px;
-border-right:1px solid var(--border);
-overflow-y:auto;
-}
-
-.logo{
-font-size:34px;
-font-weight:700;
-margin-bottom:30px;
-}
-
-.card{
-background:var(--card);
-padding:22px;
-border-radius:18px;
-margin-bottom:22px;
-}
-
-.card h3{
-margin-bottom:16px;
-}
-
-/* INPUT */
-
-input{
-width:100%;
-padding:14px;
-background:#08111d;
-color:white;
-border:none;
-border-radius:14px;
-outline:none;
-font-size:16px;
-}
-
-/* BUTTON */
-
-button{
-width:100%;
-padding:14px;
-margin-top:14px;
-border:none;
-border-radius:14px;
-background:var(--primary);
-color:white;
-font-weight:700;
-cursor:pointer;
-font-size:16px;
-transition:0.2s;
-}
-
-button:hover{
-opacity:0.9;
-}
-
-/* STATUS */
-
-#status{
-margin-top:20px;
-white-space:pre-line;
-color:#9cc9ff;
-line-height:1.6;
-}
-
-/* ========================================= */
-/* RIGHT PANEL */
-/* ========================================= */
-
-.right{
-display:flex;
-flex-direction:column;
-height:100dvh;
-overflow:hidden;
-position:relative;
-}
-
-/* HEADER */
-
-.header{
-padding:20px;
-font-size:22px;
-font-weight:700;
-border-bottom:1px solid var(--border);
-background:#0b1627;
-z-index:10;
-}
-
-/* CHAT AREA */
-
-.chat{
-flex:1;
-overflow-y:auto;
-padding:20px;
-padding-bottom:120px;
-display:flex;
-flex-direction:column;
-gap:12px;
-scroll-behavior:smooth;
-}
-
-/* MESSAGE */
-
-.msg{
-padding:14px 16px;
-border-radius:16px;
-max-width:85%;
-white-space:pre-wrap;
-line-height:1.6;
-word-wrap:break-word;
-font-size:15px;
-animation:fadeIn 0.2s ease;
-}
-
-.user{
-align-self:flex-end;
-background:var(--primary);
-}
-
-.bot{
-align-self:flex-start;
-background:var(--card);
-}
-
-/* CHAT INPUT */
-
-.chatbox{
-position:sticky;
-bottom:0;
-width:100%;
-padding:14px;
-border-top:1px solid var(--border);
-background:#0b1627;
-backdrop-filter:blur(10px);
-z-index:20;
-padding-bottom:
-max(14px, env(safe-area-inset-bottom));
-}
-
-.row{
-display:flex;
-gap:10px;
-align-items:flex-end;
-}
-
-/* TEXTAREA */
-
-textarea{
-flex:1;
-min-height:54px;
-max-height:160px;
-padding:14px;
-background:#08111d;
-border:none;
-border-radius:14px;
-color:white;
-resize:none;
-outline:none;
-font-size:16px;
-overflow-y:auto;
-}
-
-/* SEND BUTTON */
-
-.send{
-width:110px;
-min-width:110px;
-margin-top:0;
-height:54px;
-}
-
-/* ========================================= */
-/* MOBILE */
-/* ========================================= */
-
-@media(max-width:900px){
-
-.container{
-grid-template-columns:1fr;
-}
-
-.left{
-display:none;
-}
-
-.header{
-font-size:20px;
-padding:16px;
-text-align:center;
-}
-
-.chat{
-padding:14px;
-padding-bottom:110px;
-}
-
-.msg{
-max-width:92%;
-font-size:14px;
-}
-
-}
-
-@media(max-width:600px){
-
-.container{
-height:100dvh;
-}
-
-.right{
-height:100dvh;
-}
-
-.header{
-font-size:18px;
-padding:14px;
-}
-
-.chat{
-padding:12px;
-padding-bottom:120px;
-}
-
-.msg{
-padding:12px;
-font-size:14px;
-max-width:95%;
-}
-
-.chatbox{
-padding:10px;
-padding-bottom:
-max(10px, env(safe-area-inset-bottom));
-}
-
-.row{
-gap:8px;
-}
-
-textarea{
-min-height:50px;
-font-size:16px;
-padding:12px;
-}
-
-.send{
-width:90px;
-min-width:90px;
-height:50px;
-font-size:14px;
-}
-
-button{
-font-size:15px;
-}
-
-}
-
-@media(max-width:400px){
-
-.send{
-width:80px;
-min-width:80px;
-font-size:13px;
-}
-
-textarea{
-font-size:15px;
-}
-
-.logo{
-font-size:26px;
-}
-
-}
-
-/* ========================================= */
-/* ANIMATION */
-/* ========================================= */
-
-@keyframes fadeIn{
-
-from{
-opacity:0;
-transform:translateY(8px);
-}
-
-to{
-opacity:1;
-transform:translateY(0);
-}
-
-}
-
-/* ========================================= */
-/* SCROLLBAR */
-/* ========================================= */
-
-::-webkit-scrollbar{
-width:6px;
-height:6px;
-}
-
-::-webkit-scrollbar-thumb{
-background:#2a4365;
-border-radius:10px;
-}
-
-::-webkit-scrollbar-track{
-background:transparent;
-}
-
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Research Assistant</title>
+    <style>
+        :root {
+            --bg: #07111f;
+            --panel: #0f1b2d;
+            --card: #14233b;
+            --primary: #3b82f6;
+            --border: #223552;
+            --text: #ffffff;
+            --muted: #9bb4d6;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #07111f, #0f172a);
+            color: white;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            height: 100dvh;
+            width: 100%;
+            overflow: hidden;
+        }
+        .left {
+            background: var(--panel);
+            padding: 24px;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+        }
+        .logo {
+            font-size: 34px;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: var(--card);
+            padding: 22px;
+            border-radius: 18px;
+            margin-bottom: 22px;
+        }
+        .card h3 {
+            margin-bottom: 16px;
+        }
+        input {
+            width: 100%;
+            padding: 14px;
+            background: #08111d;
+            color: white;
+            border: none;
+            border-radius: 14px;
+            outline: none;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 14px;
+            border: none;
+            border-radius: 14px;
+            background: var(--primary);
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .auth-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .toggle-btn {
+            flex: 1;
+            background: var(--border);
+            margin-top: 0;
+        }
+        .toggle-btn.active {
+            background: var(--primary);
+        }
+        .auth-form {
+            display: none;
+        }
+        .auth-form.active {
+            display: block;
+        }
+        .user-info {
+            margin-top: 20px;
+            padding: 12px;
+            background: var(--primary);
+            border-radius: 12px;
+            display: none;
+        }
+        .user-info.show {
+            display: block;
+        }
+        .logout-btn {
+            background: #dc2626;
+            margin-top: 10px;
+        }
+        .forgot-link {
+            text-align: right;
+            margin-top: -8px;
+            margin-bottom: 12px;
+        }
+        .forgot-link a {
+            color: var(--primary);
+            font-size: 13px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: var(--panel);
+            padding: 30px;
+            border-radius: 20px;
+            max-width: 420px;
+            width: 90%;
+            position: relative;
+        }
+        .modal-content h3 {
+            margin-bottom: 20px;
+        }
+        .right {
+            display: flex;
+            flex-direction: column;
+            height: 100dvh;
+            overflow: hidden;
+        }
+        .header {
+            padding: 20px;
+            font-size: 22px;
+            font-weight: 700;
+            border-bottom: 1px solid var(--border);
+            background: #0b1627;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-badge {
+            font-size: 14px;
+            background: var(--primary);
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+        .chat {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 120px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .msg {
+            padding: 14px 16px;
+            border-radius: 16px;
+            max-width: 85%;
+            white-space: pre-wrap;
+            line-height: 1.6;
+            word-wrap: break-word;
+            font-size: 15px;
+        }
+        .user {
+            align-self: flex-end;
+            background: var(--primary);
+        }
+        .bot {
+            align-self: flex-start;
+            background: var(--card);
+        }
+        .chatbox {
+            position: sticky;
+            bottom: 0;
+            width: 100%;
+            padding: 14px;
+            border-top: 1px solid var(--border);
+            background: #0b1627;
+        }
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        textarea {
+            flex: 1;
+            min-height: 54px;
+            max-height: 160px;
+            padding: 14px;
+            background: #08111d;
+            border: none;
+            border-radius: 14px;
+            color: white;
+            resize: none;
+            outline: none;
+            font-size: 16px;
+        }
+        .send {
+            width: 110px;
+            min-width: 110px;
+            margin-top: 0;
+            height: 54px;
+        }
+        #status {
+            margin-top: 20px;
+            white-space: pre-line;
+            color: #9cc9ff;
+            line-height: 1.6;
+            min-height: 60px;
+        }
+        .otp-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #1a2a4a;
+            color: #9cc9ff;
+            display: none;
+        }
+        .otp-status.show {
+            display: block;
+        }
+        .otp-status.success {
+            background: #1a3a2a;
+            color: #4ade80;
+        }
+        .otp-status.error {
+            background: #3a1a1a;
+            color: #f87171;
+        }
+        .resend-link {
+            text-align: center;
+            margin-top: 12px;
+        }
+        .resend-link a {
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+        }
+        .resend-link a:hover {
+            text-decoration: underline;
+        }
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .step-indicator span {
+            opacity: 0.3;
+        }
+        .step-indicator span.active {
+            opacity: 1;
+            color: var(--primary);
+        }
+        .step-indicator span.completed {
+            opacity: 1;
+            color: #4ade80;
+        }
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .left {
+                display: none;
+            }
+        }
+    </style>
 </head>
-
 <body>
-
 <div class="container">
+    <div class="left">
+        <div class="logo">📄 PDF Chat</div>
 
-<!-- ====================================== -->
-<!-- LEFT PANEL -->
-<!-- ====================================== -->
+        <div class="card">
+            <h3>🔐 Account</h3>
+            <div class="auth-toggle">
+                <button class="toggle-btn active" onclick="showAuthForm('login')">Login</button>
+                <button class="toggle-btn" onclick="showAuthForm('signup')">Sign Up</button>
+            </div>
 
-<div class="left">
+            <div id="loginForm" class="auth-form active">
+                <input type="email" id="loginEmail" placeholder="Email">
+                <input type="password" id="loginPassword" placeholder="Password">
+                <div class="forgot-link">
+                    <a onclick="showForgotPassword()">Forgot Password?</a>
+                </div>
+                <button onclick="login()">Login</button>
+            </div>
 
-<div class="logo">
-📄 PDF Chat
+            <div id="signupForm" class="auth-form">
+                <input type="email" id="signupEmail" placeholder="Email">
+                <input type="password" id="signupPassword" placeholder="Password (min 6 chars)">
+                <button onclick="signup()">Sign Up</button>
+            </div>
+
+            <div id="userInfo" class="user-info">
+                <div id="userDisplay"></div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📄 Upload PDF</h3>
+            <input type="file" id="file" accept=".pdf" disabled/>
+            <button onclick="uploadFile()" id="uploadBtn" disabled>Upload PDF</button>
+        </div>
+
+        <div id="status">Login to get started.</div>
+    </div>
+
+    <div class="right">
+        <div class="header">
+            Research Assistant
+            <div id="userBadge" class="user-badge"></div>
+        </div>
+
+        <div id="chat" class="chat">
+            <div class="msg bot">Login to upload and chat with PDFs.</div>
+        </div>
+
+        <div class="chatbox">
+            <div class="row">
+                <textarea id="q" placeholder="Ask something..." disabled></textarea>
+                <button onclick="ask()" class="send" id="sendBtn" disabled>Send</button>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="card">
+<!-- Forgot Password Modal -->
+<div id="forgotModal" class="modal">
+    <div class="modal-content">
+        <h3>🔑 Reset Password</h3>
+        
+        <!-- Step Indicators -->
+        <div class="step-indicator">
+            <span id="step1Indicator" class="active">1. Email</span>
+            <span id="step2Indicator">2. OTP</span>
+            <span id="step3Indicator">3. Reset</span>
+        </div>
 
-<h3>Upload PDF</h3>
+        <!-- Step 1: Enter Email -->
+        <div id="step1">
+            <p style="color: #9bb4d6; margin-bottom: 15px; font-size: 14px;">
+                Enter your registered email to receive a password reset OTP.
+            </p>
+            <input type="email" id="resetEmail" placeholder="Your Email">
+            <button onclick="sendOTP()" id="sendOtpBtn">Send OTP</button>
+        </div>
 
-<input
-type="file"
-id="file"
-accept=".pdf"
-/>
+        <!-- Step 2: Enter OTP -->
+        <div id="step2" style="display:none;">
+            <p style="color: #9bb4d6; margin-bottom: 15px; font-size: 14px;">
+                Enter the 6-digit OTP sent to your email.
+            </p>
+            <input type="text" id="otpCode" placeholder="Enter 6-digit OTP" maxlength="6">
+            <button onclick="verifyOTP()" id="verifyOtpBtn">Verify OTP</button>
+            <div class="resend-link">
+                <a onclick="resendOTP()">🔄 Resend OTP</a>
+            </div>
+            <div id="otpStatus" class="otp-status"></div>
+        </div>
 
-<button onclick="uploadFile()">
-Upload PDF
-</button>
+        <!-- Step 3: Reset Password -->
+        <div id="step3" style="display:none;">
+            <p style="color: #9bb4d6; margin-bottom: 15px; font-size: 14px;">
+                OTP verified! Set your new password.
+            </p>
+            <input type="password" id="newPassword" placeholder="New Password (min 6 chars)">
+            <input type="password" id="confirmPassword" placeholder="Confirm Password">
+            <button onclick="resetPassword()" id="resetPasswordBtn">Reset Password</button>
+            <div id="resetStatus" class="otp-status"></div>
+        </div>
 
-</div>
-
-<div id="status">
-Upload a PDF to begin.
-</div>
-
-</div>
-
-<!-- ====================================== -->
-<!-- RIGHT PANEL -->
-<!-- ====================================== -->
-
-<div class="right">
-
-<div class="header">
-Research Assistant
-</div>
-
-<div id="chat" class="chat">
-
-<div class="msg bot">
-Upload a PDF to start chatting.
-</div>
-
-</div>
-
-<!-- CHAT INPUT -->
-
-<div class="chatbox">
-
-<div class="row">
-
-<textarea
-id="q"
-placeholder="Ask something..."
-disabled
-></textarea>
-
-<button
-onclick="ask()"
-class="send">
-Send
-</button>
-
-</div>
-
-</div>
-
-</div>
-
+        <div class="forgot-link" style="text-align:center; margin-top:15px;">
+            <a onclick="closeModal()">Cancel</a>
+        </div>
+    </div>
 </div>
 
 <script>
-
-const chat =
-document.getElementById("chat");
-
-const input =
-document.getElementById("q");
-
-const status =
-document.getElementById("status");
-
-/* ===================================== */
-/* ADD MESSAGE */
-/* ===================================== */
-
-function add(text,type){
-
-let div =
-document.createElement("div");
-
-div.className =
-"msg " + type;
-
-div.innerText = text;
-
-chat.appendChild(div);
-
-chat.scrollTop =
-chat.scrollHeight;
-
-return div;
-}
-
-/* ===================================== */
-/* ENABLE CHAT */
-/* ===================================== */
-
-function enable(){
-
-input.disabled = false;
-
-input.focus();
-
-}
-
-/* ===================================== */
-/* AUTO RESIZE TEXTAREA */
-/* ===================================== */
-
-input.addEventListener(
-"input",
-function(){
-
-this.style.height = "auto";
-
-this.style.height =
-(this.scrollHeight) + "px";
-
-}
-);
-
-/* ===================================== */
-/* UPLOAD PDF */
-/* ===================================== */
-
-async function uploadFile(){
-
-let file =
-document.getElementById("file")
-.files[0];
-
-if(!file){
-
-alert("Please select a PDF");
-
-return;
-}
-
-status.innerText =
-"Processing PDF...";
-
-let fd = new FormData();
-
-fd.append("file", file);
-
-try{
-
-let response =
-await fetch("/upload",{
-
-method:"POST",
-body:fd
-
-});
-
-let data =
-await response.json();
-
-if(data.error){
-
-status.innerText =
-data.error;
-
-return;
-}
-
-status.innerText =
-`✅ PDF Ready
-
-Chunks: ${data.chunks}
-
-Embedding Time:
-${data.embed_time}s`;
-
-enable();
-
-add(
-"✅ PDF uploaded successfully.",
-"bot"
-);
-
-}
-catch(err){
-
-status.innerText =
-"Upload failed.";
-
-console.log(err);
-
-}
-
-}
-
-/* ===================================== */
-/* ASK QUESTION */
-/* ===================================== */
-
-async function ask(){
-
-let q = input.value.trim();
-
-if(!q) return;
-
-add(q,"user");
-
-input.value = "";
-
-input.style.height = "54px";
-
-let bot =
-add("Thinking...","bot");
-
-try{
-
-let response =
-await fetch("/ask",{
-
-method:"POST",
-
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-question:q
-})
-
-});
-
-let data =
-await response.json();
-
-bot.innerText =
-data.answer;
-
-chat.scrollTop =
-chat.scrollHeight;
-
-}
-catch(err){
-
-bot.innerText =
-"Error contacting server.";
-
-console.log(err);
-
-}
-
-}
-
-/* ===================================== */
-/* ENTER KEY */
-/* ===================================== */
-
-input.addEventListener(
-"keydown",
-function(e){
-
-if(
-e.key === "Enter" &&
-!e.shiftKey
-){
-
-e.preventDefault();
-
-ask();
-
-}
-
-}
-);
-
-/* ===================================== */
-/* MOBILE VIEWPORT FIX */
-/* ===================================== */
-
-window.addEventListener(
-"resize",
-function(){
-
-chat.scrollTop =
-chat.scrollHeight;
-
-}
-);
-
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("q");
+    const status = document.getElementById("status");
+    let isAuthenticated = false;
+    let currentUser = "";
+    let resetEmail = "";
+    let otpVerified = false;
+    let currentStep = 1;
+
+    async function checkAuth() {
+        try {
+            const response = await fetch("/check_auth");
+            const data = await response.json();
+            if (data.authenticated) {
+                isAuthenticated = true;
+                currentUser = data.user;
+                enableFeatures();
+                updateUIForAuth(true, data.user);
+            } else {
+                isAuthenticated = false;
+                updateUIForAuth(false, "");
+            }
+        } catch (err) {
+            console.log("Auth check failed:", err);
+        }
+    }
+
+    function updateUIForAuth(authenticated, user) {
+        const fileInput = document.getElementById("file");
+        const uploadBtn = document.getElementById("uploadBtn");
+        const sendBtn = document.getElementById("sendBtn");
+        const userInfo = document.getElementById("userInfo");
+        const userBadge = document.getElementById("userBadge");
+        const userDisplay = document.getElementById("userDisplay");
+
+        if (authenticated) {
+            userInfo.classList.add("show");
+            userDisplay.innerHTML = `👤 ${user}`;
+            userBadge.innerHTML = `✅ ${user.substring(0, 15)}${user.length > 15 ? '...' : ''}`;
+            fileInput.disabled = false;
+            uploadBtn.disabled = false;
+            status.innerHTML = "Logged in. Upload a PDF to begin.";
+            addBotMessage("✅ Logged in successfully!");
+        } else {
+            userInfo.classList.remove("show");
+            userBadge.innerHTML = "🔒 Not logged in";
+            fileInput.disabled = true;
+            uploadBtn.disabled = true;
+            sendBtn.disabled = true;
+            input.disabled = true;
+            status.innerHTML = "Login to get started.";
+        }
+    }
+
+    function enableFeatures() {
+        document.getElementById("sendBtn").disabled = false;
+        input.disabled = false;
+    }
+
+    function showAuthForm(type) {
+        const loginForm = document.getElementById("loginForm");
+        const signupForm = document.getElementById("signupForm");
+        const toggleBtns = document.querySelectorAll(".toggle-btn");
+
+        if (type === "login") {
+            loginForm.classList.add("active");
+            signupForm.classList.remove("active");
+            toggleBtns[0].classList.add("active");
+            toggleBtns[1].classList.remove("active");
+        } else {
+            loginForm.classList.remove("active");
+            signupForm.classList.add("active");
+            toggleBtns[0].classList.remove("active");
+            toggleBtns[1].classList.add("active");
+        }
+    }
+
+    async function login() {
+        const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+        const password = document.getElementById("loginPassword").value.trim();
+
+        if (!email || !password) {
+            status.innerHTML = "❌ Please fill all fields";
+            return;
+        }
+
+        status.innerHTML = "Logging in...";
+
+        try {
+            const response = await fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                status.innerHTML = "✅ Login successful!";
+                await checkAuth();
+                document.getElementById("loginEmail").value = "";
+                document.getElementById("loginPassword").value = "";
+            } else {
+                status.innerHTML = `❌ ${data.error}`;
+            }
+        } catch (err) {
+            status.innerHTML = "❌ Login failed";
+            console.log(err);
+        }
+    }
+
+    async function signup() {
+        const email = document.getElementById("signupEmail").value.trim().toLowerCase();
+        const password = document.getElementById("signupPassword").value.trim();
+
+        if (!email || !password) {
+            status.innerHTML = "❌ Please fill all fields";
+            return;
+        }
+
+        if (password.length < 6) {
+            status.innerHTML = "❌ Password must be at least 6 characters";
+            return;
+        }
+
+        status.innerHTML = "Creating account...";
+
+        try {
+            const response = await fetch("/signup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                status.innerHTML = "✅ Signup successful!";
+                await checkAuth();
+                document.getElementById("signupEmail").value = "";
+                document.getElementById("signupPassword").value = "";
+            } else {
+                status.innerHTML = `❌ ${data.error}`;
+            }
+        } catch (err) {
+            status.innerHTML = "❌ Signup failed";
+            console.log(err);
+        }
+    }
+
+    function showForgotPassword() {
+        const modal = document.getElementById("forgotModal");
+        modal.style.display = "flex";
+        currentStep = 1;
+        otpVerified = false;
+        
+        // Reset all steps
+        document.getElementById("step1").style.display = "block";
+        document.getElementById("step2").style.display = "none";
+        document.getElementById("step3").style.display = "none";
+        
+        // Reset all fields
+        document.getElementById("resetEmail").value = "";
+        document.getElementById("otpCode").value = "";
+        document.getElementById("newPassword").value = "";
+        document.getElementById("confirmPassword").value = "";
+        
+        // Reset status messages
+        const otpStatus = document.getElementById("otpStatus");
+        otpStatus.classList.remove("show", "success", "error");
+        otpStatus.innerHTML = "";
+        
+        const resetStatus = document.getElementById("resetStatus");
+        resetStatus.classList.remove("show", "success", "error");
+        resetStatus.innerHTML = "";
+        
+        // Reset step indicators
+        updateStepIndicators(1);
+        
+        // Enable buttons
+        document.getElementById("sendOtpBtn").disabled = false;
+        document.getElementById("verifyOtpBtn").disabled = false;
+        document.getElementById("resetPasswordBtn").disabled = false;
+    }
+
+    function closeModal() {
+        document.getElementById("forgotModal").style.display = "none";
+        otpVerified = false;
+        currentStep = 1;
+    }
+
+    function updateStepIndicators(step) {
+        const steps = [1, 2, 3];
+        steps.forEach(s => {
+            const indicator = document.getElementById(`step${s}Indicator`);
+            indicator.classList.remove("active", "completed");
+            if (s < step) {
+                indicator.classList.add("completed");
+            } else if (s === step) {
+                indicator.classList.add("active");
+            }
+        });
+    }
+
+    async function sendOTP() {
+        const email = document.getElementById("resetEmail").value.trim().toLowerCase();
+
+        if (!email) {
+            showOTPStatus("Please enter your email", "error");
+            return;
+        }
+
+        if (!email.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
+            showOTPStatus("Please enter a valid email address", "error");
+            return;
+        }
+
+        resetEmail = email;
+        status.innerHTML = "Sending OTP...";
+        document.getElementById("sendOtpBtn").disabled = true;
+        showOTPStatus("Sending OTP to your email...", "");
+
+        try {
+            const response = await fetch("/forgot_password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                status.innerHTML = "✅ " + data.message;
+                showOTPStatus("✅ OTP sent successfully! Check your email.", "success");
+                
+                // Move to step 2
+                document.getElementById("step1").style.display = "none";
+                document.getElementById("step2").style.display = "block";
+                currentStep = 2;
+                updateStepIndicators(2);
+                
+                // Focus on OTP input
+                document.getElementById("otpCode").focus();
+            } else {
+                status.innerHTML = `❌ ${data.error}`;
+                showOTPStatus(`❌ ${data.error}`, "error");
+                document.getElementById("sendOtpBtn").disabled = false;
+            }
+        } catch (err) {
+            status.innerHTML = "❌ Failed to send OTP";
+            showOTPStatus("❌ Failed to send OTP. Please try again.", "error");
+            document.getElementById("sendOtpBtn").disabled = false;
+        }
+    }
+
+    async function resendOTP() {
+        if (!resetEmail) {
+            showOTPStatus("Please enter your email first", "error");
+            return;
+        }
+        
+        showOTPStatus("Resending OTP...", "");
+        document.getElementById("sendOtpBtn").disabled = true;
+        
+        try {
+            const response = await fetch("/forgot_password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: resetEmail })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                status.innerHTML = "✅ " + data.message;
+                showOTPStatus("✅ New OTP sent successfully!", "success");
+                document.getElementById("otpCode").value = "";
+                document.getElementById("otpCode").focus();
+            } else {
+                showOTPStatus(`❌ ${data.error}`, "error");
+            }
+        } catch (err) {
+            showOTPStatus("❌ Failed to resend OTP", "error");
+        } finally {
+            document.getElementById("sendOtpBtn").disabled = false;
+        }
+    }
+
+    function showOTPStatus(message, type) {
+        const statusDiv = document.getElementById("otpStatus");
+        statusDiv.innerHTML = message;
+        statusDiv.className = "otp-status";
+        if (type) {
+            statusDiv.classList.add("show", type);
+        } else {
+            statusDiv.classList.add("show");
+        }
+    }
+
+    function showResetStatus(message, type) {
+        const statusDiv = document.getElementById("resetStatus");
+        statusDiv.innerHTML = message;
+        statusDiv.className = "otp-status";
+        if (type) {
+            statusDiv.classList.add("show", type);
+        } else {
+            statusDiv.classList.add("show");
+        }
+    }
+
+    async function verifyOTP() {
+        const otp = document.getElementById("otpCode").value.trim();
+
+        if (!otp) {
+            showOTPStatus("Please enter the OTP", "error");
+            return;
+        }
+
+        if (otp.length !== 6 || !/^\d+$/.test(otp)) {
+            showOTPStatus("Please enter a valid 6-digit OTP", "error");
+            return;
+        }
+
+        status.innerHTML = "Verifying OTP...";
+        document.getElementById("verifyOtpBtn").disabled = true;
+        showOTPStatus("Verifying OTP...", "");
+
+        try {
+            const response = await fetch("/verify_reset_otp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: resetEmail, otp })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                status.innerHTML = "✅ OTP verified!";
+                otpVerified = true;
+                showOTPStatus("✅ OTP verified successfully! Set your new password.", "success");
+                
+                // Move to step 3 after 1 second
+                setTimeout(() => {
+                    document.getElementById("step2").style.display = "none";
+                    document.getElementById("step3").style.display = "block";
+                    currentStep = 3;
+                    updateStepIndicators(3);
+                    document.getElementById("newPassword").focus();
+                    showResetStatus("✅ OTP verified! Enter your new password.", "success");
+                }, 1000);
+                
+            } else {
+                status.innerHTML = `❌ ${data.error}`;
+                showOTPStatus(`❌ ${data.error}`, "error");
+                document.getElementById("verifyOtpBtn").disabled = false;
+            }
+        } catch (err) {
+            status.innerHTML = "❌ Verification failed";
+            showOTPStatus("❌ Verification failed. Please try again.", "error");
+            document.getElementById("verifyOtpBtn").disabled = false;
+        }
+    }
+
+    async function resetPassword() {
+        if (!otpVerified) {
+            showResetStatus("❌ Please verify your OTP first", "error");
+            return;
+        }
+
+        const newPassword = document.getElementById("newPassword").value.trim();
+        const confirmPassword = document.getElementById("confirmPassword").value.trim();
+
+        if (!newPassword || !confirmPassword) {
+            showResetStatus("❌ Please fill all fields", "error");
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            showResetStatus("❌ Password must be at least 6 characters", "error");
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            showResetStatus("❌ Passwords do not match", "error");
+            return;
+        }
+
+        status.innerHTML = "Resetting password...";
+        document.getElementById("resetPasswordBtn").disabled = true;
+        showResetStatus("Resetting password...", "");
+
+        try {
+            const response = await fetch("/reset_password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ new_password: newPassword })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                status.innerHTML = "✅ Password reset successful!";
+                showResetStatus("✅ Password reset successful! Redirecting to login...", "success");
+                
+                // Close modal after 2 seconds and redirect to login
+                setTimeout(() => {
+                    closeModal();
+                    document.getElementById("loginEmail").value = resetEmail;
+                    document.getElementById("loginPassword").focus();
+                    status.innerHTML = "✅ Password reset successful! Please login with your new password.";
+                    
+                    // Show login form
+                    document.getElementById("loginForm").classList.add("active");
+                    document.getElementById("signupForm").classList.remove("active");
+                    document.querySelectorAll(".toggle-btn")[0].classList.add("active");
+                    document.querySelectorAll(".toggle-btn")[1].classList.remove("active");
+                }, 2000);
+                
+            } else {
+                status.innerHTML = `❌ ${data.error}`;
+                showResetStatus(`❌ ${data.error}`, "error");
+                document.getElementById("resetPasswordBtn").disabled = false;
+            }
+        } catch (err) {
+            status.innerHTML = "❌ Password reset failed";
+            showResetStatus("❌ Password reset failed. Please try again.", "error");
+            document.getElementById("resetPasswordBtn").disabled = false;
+        }
+    }
+
+    async function logout() {
+        try {
+            await fetch("/logout", { method: "POST" });
+            isAuthenticated = false;
+            currentUser = "";
+            otpVerified = false;
+            updateUIForAuth(false, "");
+            addBotMessage("🔒 You have been logged out.");
+            chat.innerHTML = '<div class="msg bot">Login to upload and chat with PDFs.</div>';
+        } catch (err) {
+            console.log("Logout failed:", err);
+        }
+    }
+
+    function add(text, type) {
+        let div = document.createElement("div");
+        div.className = "msg " + type;
+        div.innerText = text;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+        return div;
+    }
+
+    function addBotMessage(text) {
+        add(text, "bot");
+    }
+
+    async function uploadFile() {
+        if (!isAuthenticated) {
+            status.innerHTML = "❌ Please login first";
+            return;
+        }
+
+        let file = document.getElementById("file").files[0];
+        if (!file) {
+            alert("Please select a PDF");
+            return;
+        }
+
+        status.innerText = "Processing PDF...";
+        let fd = new FormData();
+        fd.append("file", file);
+
+        try {
+            let response = await fetch("/upload", {
+                method: "POST",
+                body: fd
+            });
+
+            let data = await response.json();
+
+            if (data.error) {
+                status.innerText = data.error;
+                return;
+            }
+
+            status.innerText = `✅ PDF Ready\nChunks: ${data.chunks}`;
+            addBotMessage("✅ PDF uploaded successfully.");
+        } catch (err) {
+            status.innerText = "Upload failed.";
+            console.log(err);
+        }
+    }
+
+    async function ask() {
+        if (!isAuthenticated) {
+            addBotMessage("❌ Please login first");
+            return;
+        }
+
+        let q = input.value.trim();
+        if (!q) return;
+
+        add(q, "user");
+        input.value = "";
+        input.style.height = "54px";
+
+        let bot = add("Thinking...", "bot");
+
+        try {
+            let response = await fetch("/ask", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question: q })
+            });
+
+            let data = await response.json();
+            bot.innerText = data.answer;
+            chat.scrollTop = chat.scrollHeight;
+        } catch (err) {
+            bot.innerText = "Error contacting server.";
+            console.log(err);
+        }
+    }
+
+    // Auto-resize textarea
+    input.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            ask();
+        }
+    });
+
+    input.addEventListener("input", function() {
+        this.style.height = "auto";
+        this.style.height = (this.scrollHeight) + "px";
+    });
+
+    // OTP input - auto move to next field or auto-verify
+    document.getElementById("otpCode").addEventListener("input", function(e) {
+        this.value = this.value.replace(/\D/g, '').slice(0, 6);
+        if (this.value.length === 6) {
+            // Auto-verify when 6 digits are entered
+            setTimeout(verifyOTP, 500);
+        }
+    });
+
+    // Enter key support for OTP
+    document.getElementById("otpCode").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            verifyOTP();
+        }
+    });
+
+    // Enter key support for reset password
+    document.getElementById("confirmPassword").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            resetPassword();
+        }
+    });
+
+    // Click outside modal to close
+    window.onclick = function(event) {
+        const modal = document.getElementById("forgotModal");
+        if (event.target == modal) {
+            closeModal();
+        }
+    }
+
+    // Initialize
+    checkAuth();
 </script>
-
 </body>
-
 </html>
-

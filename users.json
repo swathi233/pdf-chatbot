@@ -1,0 +1,22 @@
+{
+  "9448634429": {
+    "password": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    "created_at": "2026-06-09T12:32:35.355695",
+    "type": "phone"
+  },
+  "+919448634429": {
+    "password": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    "created_at": "2026-06-19T11:11:44.345130",
+    "type": "phone"
+  },
+  "swathikaranam246@gmail.com": {
+    "password": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    "created_at": "2026-06-19T12:04:30.496856",
+    "type": "email"
+  },
+  "swaths246@gmail.com": {
+    "password": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    "created_at": "2026-06-19T13:11:47.532843",
+    "type": "email"
+  }
+}

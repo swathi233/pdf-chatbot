@@ -6,4 +6,5 @@ langchain-text-splitters
 pymupdf
 groq
 gunicorn
+twilio
 torch --index-url https://download.pytorch.org/whl/cpu
