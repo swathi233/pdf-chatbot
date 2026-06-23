@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Research Assistant</title>
-    <!-- Font & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
@@ -24,7 +23,6 @@
             overflow: hidden;
         }
 
-        /* scrollbar */
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: #0f1a2b; }
         ::-webkit-scrollbar-thumb { background: #2d4b7a; border-radius: 8px; }
@@ -37,7 +35,6 @@
             background: #0b1120;
         }
 
-        /* ---------- LEFT PANEL ---------- */
         .left-panel {
             background: #111d2f;
             border-right: 1px solid #1e314a;
@@ -261,7 +258,6 @@
             cursor: not-allowed;
         }
 
-        /* ---------- RIGHT PANEL ---------- */
         .right-panel {
             display: flex;
             flex-direction: column;
@@ -391,7 +387,6 @@
             cursor: not-allowed;
         }
 
-        /* ---------- MODAL ---------- */
         .modal {
             display: none;
             position: fixed;
@@ -504,7 +499,6 @@
             text-decoration: underline;
         }
 
-        /* responsive */
         @media (max-width: 820px) {
             .app {
                 grid-template-columns: 1fr;
@@ -624,7 +618,7 @@
 </div>
 
 <script>
-    // ---------- DOM refs ----------
+    // DOM refs
     const chat = document.getElementById("chat");
     const input = document.getElementById("q");
     const statusDiv = document.getElementById("status");
@@ -633,7 +627,7 @@
     let resetEmail = "";
     let otpVerified = false;
 
-    // ---------- Auth UI ----------
+    // Auth UI
     function showAuthForm(type) {
         const loginForm = document.getElementById("loginForm");
         const signupForm = document.getElementById("signupForm");
@@ -695,7 +689,7 @@
         } catch (e) { console.log("Auth check error", e); }
     }
 
-    // ---------- Auth actions ----------
+    // Auth actions
     async function login() {
         const email = document.getElementById("loginEmail").value.trim().toLowerCase();
         const password = document.getElementById("loginPassword").value.trim();
@@ -754,7 +748,7 @@
         } catch (e) { console.log("Logout error", e); }
     }
 
-    // ---------- Chat ----------
+    // Chat
     function add(text, type) {
         const div = document.createElement("div");
         div.className = "msg " + type;
@@ -800,7 +794,6 @@
         } catch (e) { bot.innerHTML = '<i class="fas fa-exclamation-circle"></i> Error contacting server.'; }
     }
 
-    // input auto-resize + enter
     input.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); }
     });
@@ -809,7 +802,7 @@
         this.style.height = Math.min(this.scrollHeight, 140) + "px";
     });
 
-    // ---------- Forgot password modal ----------
+    // Forgot password modal
     function showForgotPassword() {
         const modal = document.getElementById("forgotModal");
         modal.style.display = "flex";
@@ -975,7 +968,6 @@
         }
     }
 
-    // OTP auto-verify on 6 digits
     document.getElementById("otpCode").addEventListener("input", function(e) {
         this.value = this.value.replace(/\D/g, '').slice(0, 6);
         if (this.value.length === 6) setTimeout(verifyOTP, 300);
@@ -987,7 +979,6 @@
         if (e.key === "Enter") { e.preventDefault(); resetPassword(); }
     });
 
-    // close modal on outside click
     window.onclick = function(e) {
         const modal = document.getElementById("forgotModal");
         if (e.target === modal) closeModal();
