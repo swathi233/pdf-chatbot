@@ -58,6 +58,10 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB max upload
 GMAIL_SENDER = os.environ.get("GMAIL_SENDER")
 GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL")
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
+SENDGRID_FROM_EMAIL = os.environ.get("SENDGRID_FROM_EMAIL")
 
 # Initialize Groq client
 groq_client = None
@@ -113,12 +117,120 @@ def generate_otp():
     return f"{random.randint(100000, 999999)}"
 
 # ==========================
-# MULTIPLE EMAIL PROVIDERS
+# EMAIL PROVIDERS (No Mailgun)
 # ==========================
+
+def send_otp_via_resend(to_email, otp):
+    """
+    PRIMARY: Send OTP via Resend API (HTTPS - most reliable)
+    Get API key from: https://resend.com
+    """
+    if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
+        logger.warning("⚠️ Resend not configured")
+        return False
+    
+    try:
+        logger.info(f"📧 Attempting to send via Resend to {to_email}")
+        
+        url = "https://api.resend.com/emails"
+        headers = {
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "from": RESEND_FROM_EMAIL,
+            "to": [to_email],
+            "subject": "🔑 Password Reset OTP - PDF Assistant",
+            "text": f"""Your OTP for password reset is: {otp}
+
+This OTP is valid for 10 minutes.
+
+If you didn't request this, please ignore this email.
+
+Best regards,
+PDF Assistant""",
+            "html": f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .otp {{ 
+            font-size: 36px; 
+            font-weight: bold; 
+            letter-spacing: 8px;
+            background: #f0f4ff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            color: #2563eb;
+        }}
+        .footer {{ color: #666; font-size: 12px; margin-top: 30px; }}
+    </style>
+</head>
+<body>
+    <h2>🔑 Password Reset OTP</h2>
+    <p>Your OTP for password reset is:</p>
+    <div class="otp">{otp}</div>
+    <p><strong>Valid for 10 minutes</strong></p>
+    <p>If you didn't request this, please ignore this email.</p>
+    <div class="footer">PDF Assistant - Secure Authentication</div>
+</body>
+</html>"""
+        }
+        
+        response = requests.post(url, json=data, headers=headers, timeout=15)
+        
+        if response.status_code in [200, 201, 202]:
+            logger.info(f"✅ OTP sent via Resend to {to_email}")
+            return True
+        else:
+            logger.error(f"❌ Resend error: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Resend error: {e}")
+        return False
+
+def send_otp_via_sendgrid(to_email, otp):
+    """SECONDARY: Send OTP via SendGrid API (HTTPS)"""
+    if not SENDGRID_API_KEY or not SENDGRID_FROM_EMAIL:
+        logger.warning("⚠️ SendGrid not configured")
+        return False
+    
+    try:
+        logger.info(f"📧 Attempting to send via SendGrid to {to_email}")
+        
+        url = "https://api.sendgrid.com/v3/mail/send"
+        headers = {
+            "Authorization": f"Bearer {SENDGRID_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "personalizations": [{"to": [{"email": to_email}]}],
+            "from": {"email": SENDGRID_FROM_EMAIL},
+            "subject": "Password Reset OTP - PDF Assistant",
+            "content": [{
+                "type": "text/plain",
+                "value": f"Your OTP for password reset is: {otp}\n\nThis OTP is valid for 10 minutes."
+            }]
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=10)
+        if response.status_code == 202:
+            logger.info(f"✅ OTP sent via SendGrid to {to_email}")
+            return True
+        else:
+            logger.error(f"❌ SendGrid error: {response.status_code} - {response.text}")
+            return False
+    except Exception as e:
+        logger.error(f"❌ SendGrid error: {e}")
+        return False
+
 def send_otp_via_gmail(to_email, otp):
-    """Send OTP via Gmail SMTP"""
+    """FALLBACK: Send OTP via Gmail SMTP (with network fixes)"""
     if not GMAIL_SENDER or not GMAIL_PASSWORD:
-        logger.error("❌ Gmail credentials not configured")
+        logger.warning("⚠️ Gmail credentials not configured")
         return False
     
     try:
@@ -146,124 +258,98 @@ PDF Assistant
 
         msg.attach(MIMEText(body, "plain"))
         
-        # Try multiple methods
-        try:
-            # Method 1: Standard SMTP with TLS
-            server = smtplib.SMTP("smtp.gmail.com", 587, timeout=30)
-            server.set_debuglevel(0)
-            server.ehlo()
-            server.starttls(context=ssl.create_default_context())
-            server.ehlo()
-            server.login(GMAIL_SENDER, GMAIL_PASSWORD)
-            server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
-            server.quit()
-            logger.info(f"✅ OTP sent via Gmail TLS to {to_email}")
-            return True
-        except Exception as e1:
-            logger.warning(f"⚠️ Gmail TLS failed: {e1}")
-            
+        # Try multiple configurations for network resilience
+        smtp_configs = [
+            # Standard TLS
+            {"host": "smtp.gmail.com", "port": 587, "use_tls": True, "timeout": 30},
+            # SSL
+            {"host": "smtp.gmail.com", "port": 465, "use_ssl": True, "timeout": 30},
+            # Force IPv4
+            {"host": "smtp.gmail.com", "port": 587, "use_tls": True, "timeout": 45, "force_ipv4": True},
+        ]
+        
+        for config in smtp_configs:
             try:
-                # Method 2: SSL Connection
-                context = ssl.create_default_context()
-                server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30, context=context)
+                if config.get("force_ipv4"):
+                    # Create IPv4 socket explicitly
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(config.get("timeout", 30))
+                    sock.connect((config["host"], config["port"]))
+                    
+                    if config.get("use_ssl", False):
+                        context = ssl.create_default_context()
+                        server = smtplib.SMTP_SSL()
+                        server.sock = context.wrap_socket(sock, server_hostname=config["host"])
+                    else:
+                        server = smtplib.SMTP()
+                        server.sock = sock
+                else:
+                    if config.get("use_ssl", False):
+                        context = ssl.create_default_context()
+                        server = smtplib.SMTP_SSL(
+                            config["host"], 
+                            config["port"], 
+                            timeout=config.get("timeout", 30),
+                            context=context
+                        )
+                    else:
+                        server = smtplib.SMTP(
+                            config["host"], 
+                            config["port"], 
+                            timeout=config.get("timeout", 30)
+                        )
+                
+                if config.get("use_tls"):
+                    server.starttls(context=ssl.create_default_context())
+                    server.ehlo()
+                
                 server.login(GMAIL_SENDER, GMAIL_PASSWORD)
                 server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
                 server.quit()
-                logger.info(f"✅ OTP sent via Gmail SSL to {to_email}")
+                
+                logger.info(f"✅ OTP sent via Gmail to {to_email}")
                 return True
-            except Exception as e2:
-                logger.error(f"❌ Gmail SSL also failed: {e2}")
-                return False
+                
+            except Exception as e:
+                logger.warning(f"⚠️ Gmail config {config.get('port')} failed: {e}")
+                continue
+        
+        return False
                 
     except Exception as e:
         logger.error(f"❌ Gmail error: {e}")
         return False
 
-def send_otp_via_sendgrid(to_email, otp):
-    """Send OTP via SendGrid API (fallback)"""
-    sendgrid_api_key = os.environ.get("SENDGRID_API_KEY")
-    if not sendgrid_api_key:
-        return False
-    
-    try:
-        url = "https://api.sendgrid.com/v3/mail/send"
-        headers = {
-            "Authorization": f"Bearer {sendgrid_api_key}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "personalizations": [{"to": [{"email": to_email}]}],
-            "from": {"email": os.environ.get("SENDGRID_FROM_EMAIL", "noreply@yourapp.com")},
-            "subject": "Password Reset OTP - PDF Assistant",
-            "content": [{
-                "type": "text/plain",
-                "value": f"Your OTP for password reset is: {otp}\n\nThis OTP is valid for 10 minutes."
-            }]
-        }
-        response = requests.post(url, json=data, headers=headers, timeout=10)
-        if response.status_code == 202:
-            logger.info(f"✅ OTP sent via SendGrid to {to_email}")
-            return True
-        else:
-            logger.error(f"❌ SendGrid error: {response.status_code}")
-            return False
-    except Exception as e:
-        logger.error(f"❌ SendGrid error: {e}")
-        return False
-
-def send_otp_via_mailgun(to_email, otp):
-    """Send OTP via Mailgun API (fallback)"""
-    mailgun_api_key = os.environ.get("MAILGUN_API_KEY")
-    mailgun_domain = os.environ.get("MAILGUN_DOMAIN")
-    if not mailgun_api_key or not mailgun_domain:
-        return False
-    
-    try:
-        url = f"https://api.mailgun.net/v3/{mailgun_domain}/messages"
-        auth = ("api", mailgun_api_key)
-        data = {
-            "from": os.environ.get("MAILGUN_FROM_EMAIL", f"noreply@{mailgun_domain}"),
-            "to": [to_email],
-            "subject": "Password Reset OTP - PDF Assistant",
-            "text": f"Your OTP for password reset is: {otp}\n\nThis OTP is valid for 10 minutes."
-        }
-        response = requests.post(url, auth=auth, data=data, timeout=10)
-        if response.status_code == 200:
-            logger.info(f"✅ OTP sent via Mailgun to {to_email}")
-            return True
-        else:
-            logger.error(f"❌ Mailgun error: {response.status_code}")
-            return False
-    except Exception as e:
-        logger.error(f"❌ Mailgun error: {e}")
-        return False
-
 def send_otp_email(to_email, otp):
-    """Send OTP using multiple providers with fallback"""
+    """
+    Send OTP using multiple providers with intelligent fallback
+    Priority: Resend > SendGrid > Gmail SMTP
+    """
     logger.info(f"🔑 OTP for {to_email}: {otp}")
     
-    # Try primary method: Gmail SMTP
-    success = send_otp_via_gmail(to_email, otp)
-    
-    # If Gmail fails, try SendGrid
-    if not success:
-        logger.info("🔄 Trying SendGrid fallback...")
-        success = send_otp_via_sendgrid(to_email, otp)
-    
-    # If SendGrid fails, try Mailgun
-    if not success:
-        logger.info("🔄 Trying Mailgun fallback...")
-        success = send_otp_via_mailgun(to_email, otp)
-    
-    # Store OTP regardless of email success
+    # Always store OTP first
     store_otp(to_email, otp)
     
-    if not success:
-        logger.warning(f"⚠️ All email providers failed for {to_email}")
-        # Store OTP so user can use it if they see it in logs
-        return False
+    # Try providers in order of reliability (HTTPS APIs first)
+    providers = [
+        ("Resend", send_otp_via_resend),
+        ("SendGrid", send_otp_via_sendgrid),
+        ("Gmail", send_otp_via_gmail),
+    ]
     
-    return True
+    for provider_name, provider_func in providers:
+        try:
+            logger.info(f"🔄 Trying {provider_name}...")
+            success = provider_func(to_email, otp)
+            if success:
+                logger.info(f"✅ Successfully sent via {provider_name}")
+                return True
+        except Exception as e:
+            logger.error(f"❌ {provider_name} failed with error: {e}")
+            continue
+    
+    logger.warning(f"⚠️ All email providers failed for {to_email}")
+    return False
 
 def store_otp(email, otp):
     OTP_STORAGE[email] = {
@@ -373,13 +459,19 @@ def forgot_password():
         
         otp = generate_otp()
         
-        # Send OTP via email
+        # Send OTP via email with automatic fallback
         success = send_otp_email(email, otp)
         
-        # Always return success for security
+        # Always return success for security (don't reveal if email exists)
+        message = "OTP sent to your email" + (" (check spam folder)" if not success else "")
+        
+        # In development, include OTP in response for testing
+        if os.environ.get("FLASK_ENV") == "development":
+            message += f" [DEV: {otp}]"
+        
         return jsonify({
             "success": True, 
-            "message": "OTP sent to your email" + (" (check spam folder)" if not success else "")
+            "message": message
         })
             
     except Exception as e:
@@ -615,9 +707,11 @@ def health():
         "groq_available": groq_client is not None,
         "users_count": len(load_users()),
         "otp_storage": len(OTP_STORAGE),
-        "email_configured": bool(GMAIL_SENDER and GMAIL_PASSWORD),
-        "sendgrid_configured": bool(os.environ.get("SENDGRID_API_KEY")),
-        "mailgun_configured": bool(os.environ.get("MAILGUN_API_KEY"))
+        "email_providers": {
+            "resend": bool(RESEND_API_KEY and RESEND_FROM_EMAIL),
+            "sendgrid": bool(SENDGRID_API_KEY and SENDGRID_FROM_EMAIL),
+            "gmail": bool(GMAIL_SENDER and GMAIL_PASSWORD)
+        }
     }
     return jsonify(status)
 
