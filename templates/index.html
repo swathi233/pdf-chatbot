@@ -598,10 +598,18 @@
         </div>
 
         <div id="step2" style="display:none;">
-            <p style="color:#9bb4d6; font-size:14px; margin-bottom:14px;">Enter the 6-digit OTP sent to your email.</p>
-            <input type="text" id="otpCode" placeholder="6-digit OTP" maxlength="6">
-            <button class="btn-primary" onclick="verifyOTP()" id="verifyOtpBtn"><i class="fas fa-check-circle"></i> Verify OTP</button>
-            <div class="resend-link"><a onclick="resendOTP()"><i class="fas fa-redo"></i> Resend OTP</a></div>
+            <p style="color:#9bb4d6; font-size:14px; margin-bottom:14px;">
+                Enter the 6-digit OTP sent to your email.
+                <br><small style="color:#6a8fbb;">Check your spam folder if not received.</small>
+            </p>
+            <input type="text" id="otpCode" placeholder="6-digit OTP" maxlength="6" autocomplete="off">
+            <button class="btn-primary" onclick="verifyOTP()" id="verifyOtpBtn">
+                <i class="fas fa-check-circle"></i> Verify OTP
+            </button>
+            <div class="resend-link">
+                <a onclick="resendOTP()"><i class="fas fa-redo"></i> Resend OTP</a>
+                <span style="color:#4f6f92; margin-left: 10px; font-size: 12px;" id="otpTimer"></span>
+            </div>
             <div id="otpStatus" class="otp-status"></div>
         </div>
 
@@ -626,6 +634,9 @@
     let currentUser = "";
     let resetEmail = "";
     let otpVerified = false;
+    
+    // OTP Timer variables
+    let otpTimerInterval = null;
 
     // Auth UI
     function showAuthForm(type) {
@@ -748,7 +759,7 @@
         } catch (e) { console.log("Logout error", e); }
     }
 
-    // Chat
+    // Chat functions
     function add(text, type) {
         const div = document.createElement("div");
         div.className = "msg " + type;
@@ -802,7 +813,7 @@
         this.style.height = Math.min(this.scrollHeight, 140) + "px";
     });
 
-    // Forgot password modal
+    // Forgot password modal functions
     function showForgotPassword() {
         const modal = document.getElementById("forgotModal");
         modal.style.display = "flex";
@@ -818,11 +829,15 @@
         document.getElementById("sendOtpBtn").disabled = false;
         document.getElementById("verifyOtpBtn").disabled = false;
         document.getElementById("resetPasswordBtn").disabled = false;
+        document.getElementById("otpTimer").textContent = "";
+        if (otpTimerInterval) clearInterval(otpTimerInterval);
         updateStepIndicators(1);
         otpVerified = false;
     }
+    
     function closeModal() {
         document.getElementById("forgotModal").style.display = "none";
+        if (otpTimerInterval) clearInterval(otpTimerInterval);
     }
 
     function updateStepIndicators(step) {
@@ -839,12 +854,38 @@
         el.innerHTML = msg;
         el.className = "otp-status show" + (type ? " " + type : "");
     }
+    
     function showResetStatus(msg, type) {
         const el = document.getElementById("resetStatus");
         el.innerHTML = msg;
         el.className = "otp-status show" + (type ? " " + type : "");
     }
 
+    // OTP Timer function
+    function startOTPTimer() {
+        if (otpTimerInterval) clearInterval(otpTimerInterval);
+        
+        const timerElement = document.getElementById('otpTimer');
+        let seconds = 600; // 10 minutes
+        
+        timerElement.textContent = '⏱️ 10:00';
+        
+        otpTimerInterval = setInterval(() => {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            timerElement.textContent = `⏱️ ${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            
+            if (seconds <= 0) {
+                clearInterval(otpTimerInterval);
+                timerElement.textContent = '⏰ OTP expired';
+                document.getElementById('verifyOtpBtn').disabled = true;
+                showOTPStatus('⏰ OTP has expired. Please request a new one.', 'error');
+            }
+            seconds--;
+        }, 1000);
+    }
+
+    // Send OTP function
     async function sendOTP() {
         const email = document.getElementById("resetEmail").value.trim().toLowerCase();
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -862,11 +903,13 @@
             });
             const data = await res.json();
             if (data.success) {
-                showOTPStatus('<i class="fas fa-check-circle"></i> ✅ OTP sent! Check your email.', "success");
+                showOTPStatus('<i class="fas fa-check-circle"></i> ✅ OTP sent! Check your email and spam folder.', "success");
                 document.getElementById("step1").style.display = "none";
                 document.getElementById("step2").style.display = "block";
                 updateStepIndicators(2);
                 document.getElementById("otpCode").focus();
+                document.getElementById("verifyOtpBtn").disabled = false;
+                startOTPTimer();
             } else {
                 showOTPStatus(`<i class="fas fa-exclamation-circle"></i> ❌ ${data.error}`, "error");
                 document.getElementById("sendOtpBtn").disabled = false;
@@ -877,28 +920,35 @@
         }
     }
 
+    // Resend OTP function
     async function resendOTP() {
-        if (!resetEmail) { showOTPStatus('<i class="fas fa-exclamation-circle"></i> Enter email first', "error"); return; }
+        if (!resetEmail) { 
+            showOTPStatus('<i class="fas fa-exclamation-circle"></i> Enter email first', "error"); 
+            return; 
+        }
         showOTPStatus('<i class="fas fa-spinner fa-spin"></i> Resending…', "");
-        document.getElementById("sendOtpBtn").disabled = true;
         try {
-            const res = await fetch("/forgot_password", {
+            const res = await fetch("/resend_otp", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: resetEmail })
             });
             const data = await res.json();
             if (data.success) {
-                showOTPStatus('<i class="fas fa-check-circle"></i> ✅ New OTP sent!', "success");
+                showOTPStatus('<i class="fas fa-check-circle"></i> ✅ New OTP sent! Check your email.', "success");
                 document.getElementById("otpCode").value = "";
                 document.getElementById("otpCode").focus();
+                document.getElementById("verifyOtpBtn").disabled = false;
+                startOTPTimer();
             } else {
                 showOTPStatus(`<i class="fas fa-exclamation-circle"></i> ❌ ${data.error}`, "error");
             }
-        } catch (e) { showOTPStatus('<i class="fas fa-exclamation-circle"></i> ❌ Failed to resend', "error"); }
-        document.getElementById("sendOtpBtn").disabled = false;
+        } catch (e) { 
+            showOTPStatus('<i class="fas fa-exclamation-circle"></i> ❌ Failed to resend', "error"); 
+        }
     }
 
+    // Verify OTP function
     async function verifyOTP() {
         const otp = document.getElementById("otpCode").value.trim();
         if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
@@ -917,6 +967,7 @@
             if (data.success) {
                 otpVerified = true;
                 showOTPStatus('<i class="fas fa-check-circle"></i> ✅ OTP verified!', "success");
+                if (otpTimerInterval) clearInterval(otpTimerInterval);
                 setTimeout(() => {
                     document.getElementById("step2").style.display = "none";
                     document.getElementById("step3").style.display = "block";
@@ -934,6 +985,7 @@
         }
     }
 
+    // Reset Password function
     async function resetPassword() {
         if (!otpVerified) { showResetStatus('<i class="fas fa-exclamation-circle"></i> ❌ Verify OTP first', "error"); return; }
         const newPw = document.getElementById("newPassword").value.trim();
@@ -968,6 +1020,7 @@
         }
     }
 
+    // Event listeners
     document.getElementById("otpCode").addEventListener("input", function(e) {
         this.value = this.value.replace(/\D/g, '').slice(0, 6);
         if (this.value.length === 6) setTimeout(verifyOTP, 300);
@@ -978,13 +1031,17 @@
     document.getElementById("confirmPassword").addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); resetPassword(); }
     });
+    document.getElementById("resetEmail").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); sendOTP(); }
+    });
 
+    // Close modal on outside click
     window.onclick = function(e) {
         const modal = document.getElementById("forgotModal");
         if (e.target === modal) closeModal();
     };
 
-    // Init
+    // Initialize
     checkAuth();
 </script>
 </body>

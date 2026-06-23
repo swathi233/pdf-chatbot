@@ -16,6 +16,7 @@ from email.mime.multipart import MIMEMultipart
 import logging
 import ssl
 import sys
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -112,33 +113,26 @@ def generate_otp():
     return f"{random.randint(100000, 999999)}"
 
 # ==========================
-# IMPROVED EMAIL SENDING FOR RAILWAY
+# MULTIPLE EMAIL PROVIDERS
 # ==========================
 def send_otp_via_gmail(to_email, otp):
-    """Send OTP via Gmail with multiple fallback methods"""
+    """Send OTP via Gmail SMTP"""
     if not GMAIL_SENDER or not GMAIL_PASSWORD:
         logger.error("❌ Gmail credentials not configured")
         return False
     
-    # Try multiple SMTP configurations
-    smtp_configs = [
-        {"host": "smtp.gmail.com", "port": 587, "use_tls": True},
-        {"host": "smtp.gmail.com", "port": 465, "use_tls": False},  # SSL
-    ]
-    
-    for config in smtp_configs:
-        try:
-            logger.info(f"Attempting to send OTP via {config['host']}:{config['port']}")
-            
-            msg = MIMEMultipart()
-            msg["From"] = GMAIL_SENDER
-            msg["To"] = to_email
-            msg["Subject"] = "Password Reset OTP - PDF Assistant"
-            
-            body = f"""
+    try:
+        logger.info(f"📧 Attempting to send via Gmail to {to_email}")
+        
+        msg = MIMEMultipart()
+        msg["From"] = GMAIL_SENDER
+        msg["To"] = to_email
+        msg["Subject"] = "🔑 Password Reset OTP - PDF Assistant"
+        
+        body = f"""
 Hello,
 
-Your OTP for verification is:
+Your OTP for password reset is:
 
 🔑 {otp}
 
@@ -146,66 +140,130 @@ This OTP is valid for 10 minutes.
 
 If you didn't request this, please ignore this email.
 
-Regards,
+Best regards,
 PDF Assistant
 """
 
-            msg.attach(MIMEText(body, "plain"))
-            
-            if config["use_tls"]:
-                # TLS connection
-                server = smtplib.SMTP(config["host"], config["port"], timeout=30)
-                server.set_debuglevel(0)
-                server.ehlo()
-                server.starttls(context=ssl.create_default_context())
-                server.ehlo()
-            else:
-                # SSL connection
-                context = ssl.create_default_context()
-                server = smtplib.SMTP_SSL(config["host"], config["port"], timeout=30, context=context)
-            
+        msg.attach(MIMEText(body, "plain"))
+        
+        # Try multiple methods
+        try:
+            # Method 1: Standard SMTP with TLS
+            server = smtplib.SMTP("smtp.gmail.com", 587, timeout=30)
+            server.set_debuglevel(0)
+            server.ehlo()
+            server.starttls(context=ssl.create_default_context())
+            server.ehlo()
             server.login(GMAIL_SENDER, GMAIL_PASSWORD)
             server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
             server.quit()
-            
-            logger.info(f"✅ OTP sent successfully to {to_email} via {config['host']}")
+            logger.info(f"✅ OTP sent via Gmail TLS to {to_email}")
             return True
+        except Exception as e1:
+            logger.warning(f"⚠️ Gmail TLS failed: {e1}")
             
-        except socket.timeout:
-            logger.error(f"❌ SMTP timeout with {config['host']}:{config['port']}")
-            continue
-        except smtplib.SMTPAuthenticationError:
-            logger.error(f"❌ SMTP Authentication failed with {config['host']}:{config['port']}")
-            logger.error("   Check your Gmail app password")
-            continue
-        except smtplib.SMTPException as e:
-            logger.error(f"❌ SMTP Exception with {config['host']}:{config['port']}: {e}")
-            continue
-        except Exception as e:
-            logger.error(f"❌ Unexpected error with {config['host']}:{config['port']}: {e}")
-            continue
-    
-    # If all methods fail
-    logger.error(f"❌ All SMTP methods failed for {to_email}")
-    return False
+            try:
+                # Method 2: SSL Connection
+                context = ssl.create_default_context()
+                server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30, context=context)
+                server.login(GMAIL_SENDER, GMAIL_PASSWORD)
+                server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
+                server.quit()
+                logger.info(f"✅ OTP sent via Gmail SSL to {to_email}")
+                return True
+            except Exception as e2:
+                logger.error(f"❌ Gmail SSL also failed: {e2}")
+                return False
+                
+    except Exception as e:
+        logger.error(f"❌ Gmail error: {e}")
+        return False
 
-def send_otp(email, otp):
-    """Send OTP with fallback logging"""
-    logger.info(f"🔑 OTP for {email}: {otp}")
+def send_otp_via_sendgrid(to_email, otp):
+    """Send OTP via SendGrid API (fallback)"""
+    sendgrid_api_key = os.environ.get("SENDGRID_API_KEY")
+    if not sendgrid_api_key:
+        return False
     
-    # Try to send via email
-    success = send_otp_via_gmail(email, otp)
+    try:
+        url = "https://api.sendgrid.com/v3/mail/send"
+        headers = {
+            "Authorization": f"Bearer {sendgrid_api_key}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "personalizations": [{"to": [{"email": to_email}]}],
+            "from": {"email": os.environ.get("SENDGRID_FROM_EMAIL", "noreply@yourapp.com")},
+            "subject": "Password Reset OTP - PDF Assistant",
+            "content": [{
+                "type": "text/plain",
+                "value": f"Your OTP for password reset is: {otp}\n\nThis OTP is valid for 10 minutes."
+            }]
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=10)
+        if response.status_code == 202:
+            logger.info(f"✅ OTP sent via SendGrid to {to_email}")
+            return True
+        else:
+            logger.error(f"❌ SendGrid error: {response.status_code}")
+            return False
+    except Exception as e:
+        logger.error(f"❌ SendGrid error: {e}")
+        return False
+
+def send_otp_via_mailgun(to_email, otp):
+    """Send OTP via Mailgun API (fallback)"""
+    mailgun_api_key = os.environ.get("MAILGUN_API_KEY")
+    mailgun_domain = os.environ.get("MAILGUN_DOMAIN")
+    if not mailgun_api_key or not mailgun_domain:
+        return False
+    
+    try:
+        url = f"https://api.mailgun.net/v3/{mailgun_domain}/messages"
+        auth = ("api", mailgun_api_key)
+        data = {
+            "from": os.environ.get("MAILGUN_FROM_EMAIL", f"noreply@{mailgun_domain}"),
+            "to": [to_email],
+            "subject": "Password Reset OTP - PDF Assistant",
+            "text": f"Your OTP for password reset is: {otp}\n\nThis OTP is valid for 10 minutes."
+        }
+        response = requests.post(url, auth=auth, data=data, timeout=10)
+        if response.status_code == 200:
+            logger.info(f"✅ OTP sent via Mailgun to {to_email}")
+            return True
+        else:
+            logger.error(f"❌ Mailgun error: {response.status_code}")
+            return False
+    except Exception as e:
+        logger.error(f"❌ Mailgun error: {e}")
+        return False
+
+def send_otp_email(to_email, otp):
+    """Send OTP using multiple providers with fallback"""
+    logger.info(f"🔑 OTP for {to_email}: {otp}")
+    
+    # Try primary method: Gmail SMTP
+    success = send_otp_via_gmail(to_email, otp)
+    
+    # If Gmail fails, try SendGrid
+    if not success:
+        logger.info("🔄 Trying SendGrid fallback...")
+        success = send_otp_via_sendgrid(to_email, otp)
+    
+    # If SendGrid fails, try Mailgun
+    if not success:
+        logger.info("🔄 Trying Mailgun fallback...")
+        success = send_otp_via_mailgun(to_email, otp)
     
     # Store OTP regardless of email success
-    store_otp(email, otp)
+    store_otp(to_email, otp)
     
     if not success:
-        logger.warning(f"⚠️ Email failed but OTP {otp} is stored for {email}")
-        # In production, you might want to use a backup email service here
-        # For now, we'll return True so the user can still use the OTP from logs
-        return True
+        logger.warning(f"⚠️ All email providers failed for {to_email}")
+        # Store OTP so user can use it if they see it in logs
+        return False
     
-    return success
+    return True
 
 def store_otp(email, otp):
     OTP_STORAGE[email] = {
@@ -214,37 +272,42 @@ def store_otp(email, otp):
         "attempts": 0,
         "created_at": datetime.now().isoformat()
     }
-    logger.info(f"✅ OTP stored for {email}, expires in 10 minutes")
+    logger.info(f"✅ OTP stored for {email}")
 
 def verify_otp(email, otp):
     if email in OTP_STORAGE:
         stored = OTP_STORAGE[email]
         
-        # Check expiration
         if time.time() > stored["expires"]:
             del OTP_STORAGE[email]
             logger.warning(f"⏰ OTP expired for {email}")
             return "expired"
         
-        # Check OTP match
         if stored["otp"] == otp:
             del OTP_STORAGE[email]
             logger.info(f"✅ OTP verified for {email}")
             return "valid"
         
-        # Increment attempts
         stored["attempts"] += 1
         logger.warning(f"❌ Invalid OTP attempt {stored['attempts']}/3 for {email}")
         
         if stored["attempts"] >= 3:
-            del OTP_STORAGE[email]
-            logger.warning(f"🔒 Too many failed attempts for {email}")
+            # Auto-generate new OTP
+            new_otp = generate_otp()
+            store_otp(email, new_otp)
+            send_otp_email(email, new_otp)
             return "resend"
         
         return "invalid"
     
     logger.warning(f"❌ No OTP found for {email}")
     return "invalid"
+
+def get_otp_from_logs(email):
+    """Helper function to get OTP from storage (for debugging)"""
+    if email in OTP_STORAGE:
+        return OTP_STORAGE[email]["otp"]
+    return None
 
 # ==========================
 # AUTHENTICATION ROUTES
@@ -306,25 +369,18 @@ def forgot_password():
         
         users = load_users()
         if email not in users:
-            # Don't reveal if email exists or not for security
             return jsonify({"error": "No account found with this email"}), 404
         
         otp = generate_otp()
         
-        # Send OTP
-        success = send_otp(email, otp)
+        # Send OTP via email
+        success = send_otp_email(email, otp)
         
-        if success:
-            return jsonify({
-                "success": True, 
-                "message": "OTP sent to your email"
-            })
-        else:
-            # Even if email fails, we stored the OTP
-            return jsonify({
-                "success": True, 
-                "message": "OTP sent to your email (check your spam folder or contact support if not received)"
-            })
+        # Always return success for security
+        return jsonify({
+            "success": True, 
+            "message": "OTP sent to your email" + (" (check spam folder)" if not success else "")
+        })
             
     except Exception as e:
         logger.error(f"Forgot password error: {e}")
@@ -346,18 +402,12 @@ def verify_reset_otp():
             session["reset_verified"] = email
             return jsonify({"success": True, "message": "OTP verified"})
         elif result == "expired":
-            # Generate new OTP automatically
-            new_otp = generate_otp()
-            send_otp(email, new_otp)
             return jsonify({
-                "error": "OTP expired. A new OTP has been sent to your email."
+                "error": "OTP expired. A new OTP has been sent."
             }), 401
         elif result == "resend":
-            # Generate new OTP due to too many attempts
-            new_otp = generate_otp()
-            send_otp(email, new_otp)
             return jsonify({
-                "error": "Too many failed attempts. A new OTP has been sent."
+                "error": "Too many attempts. A new OTP has been sent."
             }), 401
         else:
             return jsonify({
@@ -386,22 +436,32 @@ def resend_otp():
         
         # Generate and send new OTP
         otp = generate_otp()
-        success = send_otp(email, otp)
+        success = send_otp_email(email, otp)
         
-        if success:
-            return jsonify({
-                "success": True, 
-                "message": "New OTP sent to your email"
-            })
-        else:
-            return jsonify({
-                "success": True,
-                "message": "OTP generated (check your email or contact support if not received)"
-            })
+        return jsonify({
+            "success": True,
+            "message": "New OTP sent" + (" (check spam folder)" if not success else "")
+        })
             
     except Exception as e:
         logger.error(f"Resend OTP error: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
+@app.route("/get_otp_for_testing", methods=["POST"])
+def get_otp_for_testing():
+    """Development endpoint to retrieve OTP (remove in production)"""
+    if os.environ.get("FLASK_ENV") != "development":
+        return jsonify({"error": "Not available in production"}), 403
+    
+    data = request.get_json()
+    email = data.get("email", "").strip().lower()
+    
+    if email in OTP_STORAGE:
+        return jsonify({
+            "otp": OTP_STORAGE[email]["otp"],
+            "expires": OTP_STORAGE[email]["expires"]
+        })
+    return jsonify({"error": "No OTP found"}), 404
 
 @app.route("/reset_password", methods=["POST"])
 def reset_password():
@@ -555,7 +615,9 @@ def health():
         "groq_available": groq_client is not None,
         "users_count": len(load_users()),
         "otp_storage": len(OTP_STORAGE),
-        "gmail_configured": bool(GMAIL_SENDER and GMAIL_PASSWORD)
+        "email_configured": bool(GMAIL_SENDER and GMAIL_PASSWORD),
+        "sendgrid_configured": bool(os.environ.get("SENDGRID_API_KEY")),
+        "mailgun_configured": bool(os.environ.get("MAILGUN_API_KEY"))
     }
     return jsonify(status)
 
