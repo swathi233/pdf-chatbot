@@ -1,66 +1,39 @@
-import random
-import smtplib
+# Install required package
+# pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
+
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import base64
 
-# Generate OTP
-def generate_otp():
-    return str(random.randint(100000, 999999))
-
-# Send OTP Email
-def send_otp(receiver_email):
-    sender_email = "swaths246@gmail.com"
-    app_password = "gfyrtymnvnlkvcxx"
-
-    otp = generate_otp()
-
-    message = MIMEMultipart()
-    message["From"] = sender_email
-    message["To"] = receiver_email
-    message["Subject"] = "OTP Verification"
-
-    body = f"""
-Hello,
-
-Your OTP for verification is:
-
-{otp}
-
-This OTP is valid for 10 minutes.
-
-Regards,
-Verification Team
-"""
-
-    message.attach(MIMEText(body, "plain"))
-
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, app_password)
-        server.sendmail(
-            sender_email,
-            receiver_email,
-            message.as_string()
-        )
-        server.quit()
-
-        print(f"OTP sent to {receiver_email}")
-        return otp
-
-    except Exception as e:
-        print("Error:", e)
-        return None
-
-# Example Usage
-email = input("Enter email: ")
-
-sent_otp = send_otp(email)
-
-if sent_otp:
-    user_otp = input("Enter OTP received: ")
-
-    if user_otp == sent_otp:
-        print("✅ Verification Successful")
-    else:
-        print("❌ Invalid OTP")
+def send_email_oauth2():
+    SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+    
+    creds = None
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+    
+    service = build('gmail', 'v1', credentials=creds)
+    
+    message = MIMEText('Test email from Python')
+    message['to'] = 'your_email@gmail.com'
+    message['subject'] = 'Test Email'
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    
+    service.users().messages().send(
+        userId='me',
+        body={'raw': raw}
+    ).execute()
