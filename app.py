@@ -17,13 +17,8 @@ import logging
 import ssl
 import threading
 from concurrent.futures import ThreadPoolExecutor
-import sys
-
-# Add .venv to path for Railway
-if os.path.exists('.venv'):
-    venv_path = os.path.join(os.path.dirname(__file__), '.venv', 'lib', 'python3.11', 'site-packages')
-    if venv_path not in sys.path:
-        sys.path.insert(0, venv_path)
+import dns.resolver
+import requests
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -117,16 +112,39 @@ def generate_otp():
     return f"{random.randint(100000, 999999)}"
 
 # ==========================
-# EMAIL SENDING
+# RAILWAY-SPECIFIC EMAIL FIXES
 # ==========================
 
+def get_gmail_ip():
+    """Get Gmail SMTP IP address for Railway"""
+    try:
+        # Try to resolve smtp.gmail.com
+        answers = dns.resolver.resolve('smtp.gmail.com', 'A')
+        for rdata in answers:
+            ip = str(rdata)
+            logger.info(f"Resolved smtp.gmail.com to {ip}")
+            return ip
+    except Exception as e:
+        logger.warning(f"DNS resolution failed: {e}")
+    
+    # Fallback to known Gmail SMTP IPs
+    fallback_ips = [
+        '142.250.150.108',
+        '142.250.150.109',
+        '142.250.150.110',
+        '142.250.153.108'
+    ]
+    logger.info(f"Using fallback IP: {fallback_ips[0]}")
+    return fallback_ips[0]
+
 def send_otp_via_gmail_async(to_email, otp):
-    """Send OTP via Gmail in background thread"""
+    """Send OTP via Gmail with Railway-specific fixes"""
     if not GMAIL_SENDER or not GMAIL_PASSWORD:
         logger.error("❌ Gmail credentials not configured")
         return False
         
     try:
+        # Create message
         msg = MIMEMultipart()
         msg["From"] = GMAIL_SENDER
         msg["To"] = to_email
@@ -165,42 +183,85 @@ def send_otp_via_gmail_async(to_email, otp):
         """
         msg.attach(MIMEText(text_body, "plain"))
 
-        # Try TLS first
-        try:
-            logger.info(f"Attempting to send OTP to {to_email} via Gmail TLS...")
-            socket.setdefaulttimeout(15)
-            context = ssl.create_default_context()
-            server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
-            server.set_debuglevel(0)
-            server.ehlo()
-            server.starttls(context=context)
-            server.ehlo()
-            server.login(GMAIL_SENDER, GMAIL_PASSWORD)
-            server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
-            server.quit()
-            logger.info(f"✅ OTP sent successfully via Gmail TLS to {to_email}")
-            return True
-        except Exception as e1:
-            logger.warning(f"TLS method failed: {e1}")
-            
-            # Try SSL as fallback
+        # Get Gmail IP for Railway
+        smtp_ip = get_gmail_ip()
+        
+        # Try multiple methods
+        methods = [
+            # Method 1: TLS with IP
+            lambda: smtplib.SMTP(smtp_ip, 587, timeout=10),
+            # Method 2: TLS with hostname
+            lambda: smtplib.SMTP("smtp.gmail.com", 587, timeout=10),
+            # Method 3: SSL with IP
+            lambda: smtplib.SMTP_SSL(smtp_ip, 465, timeout=10),
+            # Method 4: SSL with hostname
+            lambda: smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10),
+        ]
+        
+        for i, method in enumerate(methods):
             try:
-                logger.info(f"Trying Gmail SSL for {to_email}...")
-                context = ssl.create_default_context()
-                server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15, context=context)
-                server.set_debuglevel(0)
-                server.ehlo()
+                logger.info(f"Attempting method {i+1} for {to_email}...")
+                if i < 2:  # TLS methods
+                    server = method()
+                    server.set_debuglevel(0)
+                    context = ssl.create_default_context()
+                    server.ehlo()
+                    server.starttls(context=context)
+                    server.ehlo()
+                else:  # SSL methods
+                    server = method()
+                    server.set_debuglevel(0)
+                    server.ehlo()
+                
                 server.login(GMAIL_SENDER, GMAIL_PASSWORD)
                 server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
                 server.quit()
-                logger.info(f"✅ OTP sent successfully via Gmail SSL to {to_email}")
+                logger.info(f"✅ OTP sent successfully via method {i+1} to {to_email}")
                 return True
-            except Exception as e2:
-                logger.error(f"SSL method also failed: {e2}")
-                raise e2
+            except Exception as e:
+                logger.warning(f"Method {i+1} failed: {e}")
+                continue
+        
+        return False
 
     except Exception as e:
         logger.error(f"❌ Gmail Error for {to_email}: {e}")
+        return False
+
+def send_otp_via_resend(to_email, otp):
+    """Send OTP via Resend.com (free alternative)"""
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        return False
+    
+    try:
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "from": GMAIL_SENDER or "onboarding@resend.dev",
+                "to": [to_email],
+                "subject": "Password Reset OTP - PDF Assistant",
+                "html": f"""
+                <h2>🔐 Password Reset OTP</h2>
+                <p>Your OTP is: <strong style="font-size: 24px;">{otp}</strong></p>
+                <p>This OTP is valid for 10 minutes.</p>
+                """
+            },
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            logger.info(f"✅ OTP sent via Resend to {to_email}")
+            return True
+        else:
+            logger.error(f"Resend error: {response.text}")
+            return False
+    except Exception as e:
+        logger.error(f"Resend error: {e}")
         return False
 
 def send_otp_background(email, otp):
@@ -209,17 +270,27 @@ def send_otp_background(email, otp):
     
     def send_worker():
         success = False
+        
+        # Try Gmail first
         try:
             if send_otp_via_gmail_async(email, otp):
                 success = True
-                logger.info(f"✅ OTP sent successfully to {email}")
-            else:
-                logger.warning(f"❌ Failed to send OTP to {email}")
+                logger.info(f"✅ OTP sent via Gmail to {email}")
         except Exception as e:
-            logger.error(f"Error sending OTP: {e}")
+            logger.error(f"Gmail error: {e}")
+        
+        # Try Resend as backup
+        if not success:
+            try:
+                if send_otp_via_resend(email, otp):
+                    success = True
+                    logger.info(f"✅ OTP sent via Resend to {email}")
+            except Exception as e:
+                logger.error(f"Resend error: {e}")
         
         if not success:
             logger.warning(f"⚠️ All email methods failed. OTP for {email}: {otp}")
+            logger.warning(f"📧 Please use this OTP from server logs: {otp}")
     
     email_executor.submit(send_worker)
     return True

@@ -1,16 +1,13 @@
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip", "python311Packages.virtualenv"]
+nixPkgs = ["python311", "python311Packages.pip", "python311Packages.gcc"]
 
 [phases.install]
 cmds = [
-  "python -m venv .venv",
-  "source .venv/bin/activate",
-  "pip install --no-cache-dir -r requirements.txt"
+  "pip install --no-cache-dir --break-system-packages -r requirements.txt"
 ]
 
 [phases.start]
-cmd = "source .venv/bin/activate && gunicorn --workers=1 --timeout=120 --bind=0.0.0.0:$PORT app:app"
+cmd = "gunicorn --workers=1 --timeout=120 --bind=0.0.0.0:$PORT app:app"
 
 [environ]
 PYTHONUNBUFFERED = "1"
-PATH = ".venv/bin:$PATH"
