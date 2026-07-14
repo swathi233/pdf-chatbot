@@ -17,7 +17,13 @@ import logging
 import ssl
 import threading
 from concurrent.futures import ThreadPoolExecutor
-import queue
+import sys
+
+# Add .venv to path for Railway
+if os.path.exists('.venv'):
+    venv_path = os.path.join(os.path.dirname(__file__), '.venv', 'lib', 'python3.11', 'site-packages')
+    if venv_path not in sys.path:
+        sys.path.insert(0, venv_path)
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -43,7 +49,7 @@ logger = logging.getLogger(__name__)
 # APP SETUP
 # ==========================
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-for-railway")
 CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 
@@ -57,11 +63,7 @@ GMAIL_SENDER = os.environ.get("GMAIL_SENDER")
 GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
-# Optional: SendGrid for backup
-SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
-SENDGRID_FROM_EMAIL = os.environ.get("SENDGRID_FROM_EMAIL")
-
-# Initialize Groq client with error handling
+# Initialize Groq client
 groq_client = None
 MODEL = "llama-3.1-8b-instant"
 
@@ -83,7 +85,6 @@ else:
 # ==========================
 # USER DATABASE
 # ==========================
-# Use persistent volume in Railway
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 OTP_STORAGE = {}
 
@@ -116,17 +117,16 @@ def generate_otp():
     return f"{random.randint(100000, 999999)}"
 
 # ==========================
-# EMAIL SENDING - RAILWAY OPTIMIZED
+# EMAIL SENDING
 # ==========================
 
 def send_otp_via_gmail_async(to_email, otp):
-    """Send OTP via Gmail in background thread - Optimized for Railway"""
+    """Send OTP via Gmail in background thread"""
     if not GMAIL_SENDER or not GMAIL_PASSWORD:
         logger.error("❌ Gmail credentials not configured")
         return False
         
     try:
-        # Create message
         msg = MIMEMultipart()
         msg["From"] = GMAIL_SENDER
         msg["To"] = to_email
@@ -165,13 +165,10 @@ def send_otp_via_gmail_async(to_email, otp):
         """
         msg.attach(MIMEText(text_body, "plain"))
 
-        # Try SMTP with Railway optimized settings
+        # Try TLS first
         try:
-            logger.info(f"Attempting to send OTP to {to_email} via Gmail...")
-            # Use socket timeout
+            logger.info(f"Attempting to send OTP to {to_email} via Gmail TLS...")
             socket.setdefaulttimeout(15)
-            
-            # Try TLS first
             context = ssl.create_default_context()
             server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
             server.set_debuglevel(0)
@@ -206,88 +203,28 @@ def send_otp_via_gmail_async(to_email, otp):
         logger.error(f"❌ Gmail Error for {to_email}: {e}")
         return False
 
-def send_otp_via_sendgrid_async(to_email, otp):
-    """Send OTP via SendGrid as backup"""
-    if not SENDGRID_API_KEY:
-        return False
-    
-    try:
-        from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail
-        
-        message = Mail(
-            from_email=SENDGRID_FROM_EMAIL or GMAIL_SENDER,
-            to_emails=to_email,
-            subject="Password Reset OTP - PDF Assistant",
-            html_content=f"""
-            <html>
-            <body>
-                <h2>🔐 Password Reset OTP</h2>
-                <p>Your OTP is: <strong style="font-size: 24px;">{otp}</strong></p>
-                <p>This OTP is valid for 10 minutes.</p>
-                <p>If you didn't request this, please ignore this email.</p>
-            </body>
-            </html>
-            """
-        )
-        
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(message)
-        
-        if response.status_code in [200, 202]:
-            logger.info(f"✅ OTP sent via SendGrid to {to_email}")
-            return True
-        else:
-            logger.error(f"SendGrid error: {response.status_code}")
-            return False
-    except ImportError:
-        logger.warning("SendGrid not installed")
-        return False
-    except Exception as e:
-        logger.error(f"SendGrid error: {e}")
-        return False
-
 def send_otp_background(email, otp):
-    """Send OTP in background thread - returns immediately"""
+    """Send OTP in background thread"""
     logger.info(f"📧 Queuing OTP for {email}: {otp}")
     
     def send_worker():
         success = False
-        methods_tried = []
-        
-        # Method 1: Try Gmail
         try:
             if send_otp_via_gmail_async(email, otp):
                 success = True
-                methods_tried.append("✅ Gmail")
+                logger.info(f"✅ OTP sent successfully to {email}")
             else:
-                methods_tried.append("❌ Gmail")
+                logger.warning(f"❌ Failed to send OTP to {email}")
         except Exception as e:
-            methods_tried.append(f"❌ Gmail: {str(e)[:30]}")
-        
-        # Method 2: Try SendGrid if configured
-        if not success and SENDGRID_API_KEY:
-            try:
-                if send_otp_via_sendgrid_async(email, otp):
-                    success = True
-                    methods_tried.append("✅ SendGrid")
-                else:
-                    methods_tried.append("❌ SendGrid")
-            except Exception as e:
-                methods_tried.append(f"❌ SendGrid: {str(e)[:30]}")
-        
-        logger.info(f"Email methods for {email}: {', '.join(methods_tried)}")
+            logger.error(f"Error sending OTP: {e}")
         
         if not success:
             logger.warning(f"⚠️ All email methods failed. OTP for {email}: {otp}")
-            logger.warning(f"📧 Please use this OTP from server logs: {otp}")
     
-    # Submit to thread pool
     email_executor.submit(send_worker)
     return True
 
 def send_otp(email, otp):
-    """Send OTP - simplified version that returns immediately"""
     logger.info(f"🔑 OTP generated for {email}: {otp}")
     return send_otp_background(email, otp)
 
@@ -297,21 +234,15 @@ def store_otp(email, otp):
 def verify_otp(email, otp):
     if email in OTP_STORAGE:
         stored = OTP_STORAGE[email]
-
         if time.time() > stored["expires"]:
             return "expired"
-
         if stored["otp"] == otp:
             del OTP_STORAGE[email]
             return "valid"
-
         stored["attempts"] += 1
-
         if stored["attempts"] >= 3:
             return "resend"
-
         return "invalid"
-
     return "invalid"
 
 # ==========================
@@ -377,14 +308,9 @@ def forgot_password():
             return jsonify({"error": "No account found with this email"}), 404
         
         otp = generate_otp()
-        
-        # Store OTP
         store_otp(email, otp)
-        
-        # Send OTP asynchronously - returns immediately
         send_otp(email, otp)
         
-        # Return success immediately without waiting for email
         return jsonify({
             "success": True, 
             "message": "OTP sent to your email. Check spam folder."
@@ -403,11 +329,8 @@ def resend_otp():
         if not email:
             return jsonify({"error": "Email required"}), 400
             
-        # Generate new OTP
         otp = generate_otp()
         store_otp(email, otp)
-        
-        # Send OTP asynchronously
         send_otp(email, otp)
         
         return jsonify({
@@ -436,7 +359,6 @@ def verify_reset_otp():
         elif result == "expired":
             return jsonify({"error": "OTP expired. Request a new one."}), 401
         elif result == "resend":
-            # Generate new OTP
             new_otp = generate_otp()
             store_otp(email, new_otp)
             send_otp(email, new_otp)
@@ -601,13 +523,12 @@ def health():
         "groq_available": groq_client is not None,
         "users_count": len(load_users()),
         "otp_storage": len(OTP_STORAGE),
-        "gmail_configured": bool(GMAIL_SENDER and GMAIL_PASSWORD),
-        "sendgrid_configured": bool(SENDGRID_API_KEY)
+        "gmail_configured": bool(GMAIL_SENDER and GMAIL_PASSWORD)
     }
     return jsonify(status)
 
 # ==========================
-# RUN - RAILWAY COMPATIBLE
+# RUN
 # ==========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
