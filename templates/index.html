@@ -180,21 +180,6 @@
             cursor: not-allowed;
         }
 
-        .btn-danger {
-            background: #b91c1c;
-            border: none;
-            padding: 12px;
-            border-radius: 40px;
-            font-weight: 700;
-            color: white;
-            cursor: pointer;
-            transition: 0.2s;
-            margin-top: 10px;
-        }
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
         .user-info {
             display: none;
             background: #1a2f4a;
@@ -634,8 +619,6 @@
     let currentUser = "";
     let resetEmail = "";
     let otpVerified = false;
-    
-    // OTP Timer variables
     let otpTimerInterval = null;
 
     // Auth UI
@@ -861,20 +844,15 @@
         el.className = "otp-status show" + (type ? " " + type : "");
     }
 
-    // OTP Timer function
     function startOTPTimer() {
         if (otpTimerInterval) clearInterval(otpTimerInterval);
-        
         const timerElement = document.getElementById('otpTimer');
-        let seconds = 600; // 10 minutes
-        
+        let seconds = 600;
         timerElement.textContent = '⏱️ 10:00';
-        
         otpTimerInterval = setInterval(() => {
             const minutes = Math.floor(seconds / 60);
             const remainingSeconds = seconds % 60;
             timerElement.textContent = `⏱️ ${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-            
             if (seconds <= 0) {
                 clearInterval(otpTimerInterval);
                 timerElement.textContent = '⏰ OTP expired';
@@ -885,7 +863,6 @@
         }, 1000);
     }
 
-    // Send OTP function
     async function sendOTP() {
         const email = document.getElementById("resetEmail").value.trim().toLowerCase();
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -920,7 +897,6 @@
         }
     }
 
-    // Resend OTP function
     async function resendOTP() {
         if (!resetEmail) { 
             showOTPStatus('<i class="fas fa-exclamation-circle"></i> Enter email first', "error"); 
@@ -948,7 +924,6 @@
         }
     }
 
-    // Verify OTP function
     async function verifyOTP() {
         const otp = document.getElementById("otpCode").value.trim();
         if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
@@ -985,7 +960,6 @@
         }
     }
 
-    // Reset Password function
     async function resetPassword() {
         if (!otpVerified) { showResetStatus('<i class="fas fa-exclamation-circle"></i> ❌ Verify OTP first', "error"); return; }
         const newPw = document.getElementById("newPassword").value.trim();
