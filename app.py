@@ -1,5 +1,5 @@
 # ==========================
-# app.py - Complete Flask Application with Railway Compatibility
+# app.py - Complete Flask Application with Compatibility Fixes
 # ==========================
 
 from flask import Flask, request, jsonify, render_template, session
@@ -27,8 +27,21 @@ except ImportError:
     GROQ_AVAILABLE = False
     print("⚠️ Groq not installed, some features will be disabled")
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sklearn.feature_extraction.text import TfidfVectorizer
+# Import LangChain with error handling
+try:
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_AVAILABLE = False
+    print("⚠️ LangChain not installed, some features will be disabled")
+
+# Import sklearn with error handling
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    print("⚠️ scikit-learn not installed, some features will be disabled")
 
 # ==========================
 # LOGGING SETUP
@@ -469,6 +482,9 @@ def extract_pdf(path):
     return text
 
 def build_db(text, user_data_obj):
+    if not LANGCHAIN_AVAILABLE or not SKLEARN_AVAILABLE:
+        raise Exception("Required libraries not available. Please check installation.")
+    
     splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
     chunks = splitter.split_text(text)
     chunks = [c for c in chunks if len(c.strip()) > 80][:60]
@@ -541,7 +557,12 @@ def upload():
     user_data_obj = get_user_data()
     if not user_data_obj:
         return jsonify({"error": "Session error"}), 401
-    chunks = build_db(text, user_data_obj)
+    
+    try:
+        chunks = build_db(text, user_data_obj)
+    except Exception as e:
+        logger.error(f"Build DB error: {e}")
+        return jsonify({"error": str(e)}), 500
     
     # Generate and store greeting for this user
     user_id = session["user_id"]
@@ -616,6 +637,8 @@ def health():
     status = {
         "status": "running",
         "groq_available": groq_client is not None,
+        "langchain_available": LANGCHAIN_AVAILABLE,
+        "sklearn_available": SKLEARN_AVAILABLE,
         "users_count": len(load_users()),
         "otp_storage": len(OTP_STORAGE)
     }
@@ -629,5 +652,7 @@ if __name__ == "__main__":
     
     logger.info(f"🚀 Starting server on port {port}")
     logger.info(f"🔑 GROQ configured: {bool(GROQ_API_KEY)}")
+    logger.info(f"📚 LangChain available: {LANGCHAIN_AVAILABLE}")
+    logger.info(f"📊 scikit-learn available: {SKLEARN_AVAILABLE}")
     
     app.run(host="0.0.0.0", port=port, debug=True)
