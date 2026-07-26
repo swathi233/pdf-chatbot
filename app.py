@@ -1,3 +1,7 @@
+# ==========================
+# app.py - Complete Flask Application with Enhanced Greeting Support
+# ==========================
+
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 import os
@@ -9,16 +13,8 @@ import re
 from datetime import datetime
 import json
 import random
-import smtplib
-import socket
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import logging
-import ssl
-import threading
 from concurrent.futures import ThreadPoolExecutor
-import dns.resolver
-import requests
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -48,14 +44,9 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-for-railway")
 CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 
-# Thread pool for background email sending
-email_executor = ThreadPoolExecutor(max_workers=2)
-
 # ==========================
 # ENVIRONMENT VARIABLES
 # ==========================
-GMAIL_SENDER = os.environ.get("GMAIL_SENDER")
-GMAIL_PASSWORD = os.environ.get("GMAIL_PASSWORD")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 # Initialize Groq client
@@ -108,139 +99,147 @@ def verify_password(password, hashed):
 def validate_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email) is not None
 
+def validate_phone(phone):
+    # Simple phone validation - accepts various formats
+    phone = re.sub(r'[\s\-\(\)\+]', '', phone)
+    return re.match(r'^[0-9]{7,15}$', phone) is not None
+
+def normalize_identifier(identifier):
+    """Normalize identifier to a standard format"""
+    identifier = identifier.strip().lower()
+    # If it's a phone number, remove special characters
+    if re.search(r'[0-9]', identifier) and not re.search(r'@', identifier):
+        # It's a phone number
+        phone = re.sub(r'[\s\-\(\)\+]', '', identifier)
+        return phone
+    return identifier
+
+def is_email(identifier):
+    return '@' in identifier and '.' in identifier
+
+def get_user_by_identifier(identifier):
+    """Find user by email or phone number"""
+    users = load_users()
+    normalized = normalize_identifier(identifier)
+    
+    for user_id, user_data in users.items():
+        if user_id == normalized:
+            return user_id, user_data
+        # Also check if user_id matches the raw identifier
+        if user_id == identifier:
+            return user_id, user_data
+    
+    return None, None
+
+# ==========================
+# OTP STORAGE (5 seconds expiry)
+# ==========================
+def store_otp(identifier, otp):
+    normalized = normalize_identifier(identifier)
+    OTP_STORAGE[normalized] = {
+        "otp": otp,
+        "expires": time.time() + 5,  # 5 seconds expiry
+        "attempts": 0
+    }
+    logger.info(f"OTP stored for {normalized}: {otp} (expires in 5 seconds)")
+
+def verify_otp(identifier, otp):
+    normalized = normalize_identifier(identifier)
+    if normalized in OTP_STORAGE:
+        stored = OTP_STORAGE[normalized]
+        if time.time() > stored["expires"]:
+            del OTP_STORAGE[normalized]
+            return "expired"
+        if stored["otp"] == otp:
+            del OTP_STORAGE[normalized]
+            return "valid"
+        stored["attempts"] += 1
+        if stored["attempts"] >= 3:
+            del OTP_STORAGE[normalized]
+            return "resend"
+        return "invalid"
+    return "invalid"
+
 def generate_otp():
     return f"{random.randint(100000, 999999)}"
 
 # ==========================
-# EMAIL SENDING
+# CASUAL GREETING HANDLER
 # ==========================
-
-def send_otp_via_gmail_async(to_email, otp):
-    """Send OTP via Gmail"""
-    if not GMAIL_SENDER or not GMAIL_PASSWORD:
-        logger.error("❌ Gmail credentials not configured")
-        return False
-        
-    try:
-        # Create message
-        msg = MIMEMultipart()
-        msg["From"] = GMAIL_SENDER
-        msg["To"] = to_email
-        msg["Subject"] = "Password Reset OTP - PDF Assistant"
-
-        html_body = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f6f9;">
-            <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                <h2 style="color: #1a237e; margin-bottom: 20px;">🔐 Password Reset OTP</h2>
-                <p style="color: #333; font-size: 16px;">Hello,</p>
-                <p style="color: #333; font-size: 16px;">You requested to reset your password. Use the OTP below to verify your identity:</p>
-                <div style="background-color: #e8eaf6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                    <span style="font-size: 32px; font-weight: bold; color: #1a237e; letter-spacing: 5px;">{otp}</span>
-                </div>
-                <p style="color: #666; font-size: 14px;">This OTP is valid for <strong>10 minutes</strong>.</p>
-                <p style="color: #666; font-size: 14px;">If you didn't request this, please ignore this email.</p>
-                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-                <p style="color: #999; font-size: 12px; text-align: center;">PDF Research Assistant</p>
-            </div>
-        </body>
-        </html>
-        """
-
-        msg.attach(MIMEText(html_body, "html"))
-        
-        text_body = f"""
-        Password Reset OTP
-        
-        Your OTP is: {otp}
-        
-        This OTP is valid for 10 minutes.
-        If you didn't request this, please ignore this email.
-        
-        PDF Research Assistant
-        """
-        msg.attach(MIMEText(text_body, "plain"))
-
-        # Try multiple connection methods
-        try:
-            logger.info(f"Attempting to send OTP to {to_email}...")
-            # Try TLS with timeout
-            context = ssl.create_default_context()
-            server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
-            server.set_debuglevel(0)
-            server.ehlo()
-            server.starttls(context=context)
-            server.ehlo()
-            server.login(GMAIL_SENDER, GMAIL_PASSWORD)
-            server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
-            server.quit()
-            logger.info(f"✅ OTP sent successfully to {to_email}")
+def is_casual_greeting(text):
+    """Check if the user message is a casual greeting"""
+    text = text.lower().strip()
+    # Common casual greetings
+    casual_greetings = [
+        'hi', 'hello', 'hey', 'hi there', 'hello there', 'hey there',
+        'good morning', 'good afternoon', 'good evening', 'good night',
+        'greetings', 'howdy', 'yo', 'sup', 'what\'s up', 'whats up',
+        'hey hey', 'hi hi', 'hello hello', 'morning', 'evening'
+    ]
+    
+    # Check for exact matches or simple variations
+    text_clean = re.sub(r'[^a-zA-Z\s]', '', text).strip()
+    
+    for greeting in casual_greetings:
+        if text_clean == greeting or text_clean.startswith(greeting + ' '):
             return True
-        except Exception as e1:
-            logger.warning(f"TLS method failed: {e1}")
-            
-            # Try SSL as fallback
-            try:
-                logger.info(f"Trying SSL for {to_email}...")
-                context = ssl.create_default_context()
-                server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10, context=context)
-                server.set_debuglevel(0)
-                server.ehlo()
-                server.login(GMAIL_SENDER, GMAIL_PASSWORD)
-                server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
-                server.quit()
-                logger.info(f"✅ OTP sent successfully via SSL to {to_email}")
-                return True
-            except Exception as e2:
-                logger.error(f"SSL method failed: {e2}")
-                raise e2
-
-    except Exception as e:
-        logger.error(f"❌ Gmail Error for {to_email}: {e}")
-        return False
-
-def send_otp_background(email, otp):
-    """Send OTP in background thread"""
-    logger.info(f"📧 Queuing OTP for {email}: {otp}")
     
-    def send_worker():
-        success = False
-        
-        # Try Gmail
-        try:
-            if send_otp_via_gmail_async(email, otp):
-                success = True
-                logger.info(f"✅ OTP sent via Gmail to {email}")
-        except Exception as e:
-            logger.error(f"Gmail error: {e}")
-        
-        if not success:
-            logger.warning(f"⚠️ Email failed. OTP for {email}: {otp}")
-            logger.warning(f"📧 Please use this OTP from server logs: {otp}")
+    # Check for patterns like "hello world" or "hi everyone"
+    if any(g in text_clean for g in ['hi', 'hello', 'hey']) and len(text_clean.split()) <= 3:
+        return True
     
-    email_executor.submit(send_worker)
-    return True
+    return False
 
-def send_otp(email, otp):
-    logger.info(f"🔑 OTP generated for {email}: {otp}")
-    return send_otp_background(email, otp)
-
-def store_otp(email, otp):
-    OTP_STORAGE[email] = {"otp": otp, "expires": time.time() + 600, "attempts": 0}
-
-def verify_otp(email, otp):
-    if email in OTP_STORAGE:
-        stored = OTP_STORAGE[email]
-        if time.time() > stored["expires"]:
-            return "expired"
-        if stored["otp"] == otp:
-            del OTP_STORAGE[email]
-            return "valid"
-        stored["attempts"] += 1
-        if stored["attempts"] >= 3:
-            return "resend"
-        return "invalid"
-    return "invalid"
+def get_casual_response(text):
+    """Generate a friendly response to casual greetings"""
+    text_lower = text.lower().strip()
+    
+    # Time-based greetings
+    current_hour = datetime.now().hour
+    
+    responses = []
+    
+    if 'good morning' in text_lower or 'morning' in text_lower:
+        responses = [
+            "🌅 Good morning to you too! How can I help you today?",
+            "☀️ Good morning! Ready to dive into your documents?",
+            "🌄 Good morning! I'm here to help with your research."
+        ]
+    elif 'good afternoon' in text_lower or 'afternoon' in text_lower:
+        responses = [
+            "🌤️ Good afternoon! What can I assist you with?",
+            "☀️ Good afternoon! Your documents are ready for questions.",
+            "🌞 Good afternoon! How can I help you explore your PDFs?"
+        ]
+    elif 'good evening' in text_lower or 'evening' in text_lower:
+        responses = [
+            "🌙 Good evening! I'm here to help you with your research.",
+            "🌟 Good evening! What would you like to know about your documents?",
+            "🌆 Good evening! Ready to answer your questions."
+        ]
+    elif 'good night' in text_lower or 'night' in text_lower:
+        responses = [
+            "🌙 Good night! I'll be here when you need me.",
+            "💤 Good night! Sweet dreams and see you tomorrow.",
+            "🌃 Good night! Remember, I'm always available."
+        ]
+    elif 'hi' in text_lower or 'hello' in text_lower or 'hey' in text_lower:
+        responses = [
+            "👋 Hey there! How can I help you with your documents today?",
+            "👋 Hello! I'm ready to answer any questions about your PDF.",
+            "😊 Hi! What would you like to know?",
+            "👋 Hey! Feel free to ask me anything about your uploaded documents.",
+            "Hello! 👋 I'm your research assistant. What can I do for you?",
+            "Hi there! 😊 I'm here to help you understand your PDFs better."
+        ]
+    else:
+        responses = [
+            "👋 Hello! How can I assist you today?",
+            "😊 Hi there! Ready to help with your research questions.",
+            "👋 Hey! What would you like to explore?"
+        ]
+    
+    return random.choice(responses)
 
 # ==========================
 # AUTHENTICATION ROUTES
@@ -250,24 +249,36 @@ def verify_otp(email, otp):
 def signup():
     try:
         data = request.get_json()
-        email = data.get("email", "").strip().lower()
+        identifier = data.get("identifier", "").strip()
         password = data.get("password", "").strip()
         
-        if not email or not password:
+        if not identifier or not password:
             return jsonify({"error": "All fields required"}), 400
         if len(password) < 6:
             return jsonify({"error": "Password must be at least 6 characters"}), 400
-        if not validate_email(email):
-            return jsonify({"error": "Invalid email"}), 400
-            
+        
+        # Validate identifier (email or phone)
+        is_email_identifier = is_email(identifier)
+        if is_email_identifier and not validate_email(identifier):
+            return jsonify({"error": "Invalid email format"}), 400
+        elif not is_email_identifier and not validate_phone(identifier):
+            return jsonify({"error": "Invalid phone number"}), 400
+        
+        normalized = normalize_identifier(identifier)
         users = load_users()
-        if email in users:
-            return jsonify({"error": "Email already registered"}), 400
+        
+        if normalized in users:
+            return jsonify({"error": "Account already exists"}), 400
             
-        users[email] = {"password": hash_password(password), "created_at": datetime.now().isoformat()}
+        users[normalized] = {
+            "password": hash_password(password), 
+            "created_at": datetime.now().isoformat(),
+            "identifier": normalized,
+            "is_email": is_email_identifier
+        }
         save_users(users)
-        session["user_id"] = email
-        return jsonify({"success": True, "message": "Signup successful", "user": email})
+        session["user_id"] = normalized
+        return jsonify({"success": True, "message": "Signup successful", "user": normalized})
     except Exception as e:
         logger.error(f"Signup error: {e}")
         return jsonify({"error": "Internal server error"}), 500
@@ -276,66 +287,89 @@ def signup():
 def login():
     try:
         data = request.get_json()
-        email = data.get("email", "").strip().lower()
+        identifier = data.get("identifier", "").strip()
         password = data.get("password", "").strip()
         
-        if not email or not password:
+        if not identifier or not password:
             return jsonify({"error": "All fields required"}), 400
+        
+        user_id, user_data = get_user_by_identifier(identifier)
+        
+        if not user_data:
+            return jsonify({"error": "Account not registered. Please sign up first."}), 401
             
-        users = load_users()
-        if email not in users or not verify_password(password, users[email]["password"]):
+        if not verify_password(password, user_data["password"]):
             return jsonify({"error": "Invalid credentials"}), 401
             
-        session["user_id"] = email
-        return jsonify({"success": True, "message": "Login successful", "user": email})
+        session["user_id"] = user_id
+        return jsonify({"success": True, "message": "Login successful", "user": user_id})
     except Exception as e:
         logger.error(f"Login error: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-@app.route("/forgot_password", methods=["POST"])
-def forgot_password():
+@app.route("/get_otp", methods=["POST"])
+def get_otp():
+    """Endpoint for client to get OTP for a user"""
     try:
         data = request.get_json()
-        logger.info(f"Forgot password request received: {data}")
+        identifier = data.get("identifier", "").strip()
         
-        email = data.get("email", "").strip().lower()
+        if not identifier:
+            return jsonify({"error": "Email or phone number required"}), 400
         
-        if not email:
-            return jsonify({"error": "Email required"}), 400
-        
+        normalized = normalize_identifier(identifier)
         users = load_users()
-        if email not in users:
-            return jsonify({"error": "No account found with this email"}), 404
+        
+        # Check if user exists
+        if normalized not in users:
+            # Try to find by raw identifier
+            found = False
+            for user_id in users:
+                if user_id == identifier:
+                    normalized = user_id
+                    found = True
+                    break
+            if not found:
+                return jsonify({"error": "No account found with this email/phone"}), 404
         
         otp = generate_otp()
-        store_otp(email, otp)
-        send_otp(email, otp)
+        store_otp(normalized, otp)
+        
+        logger.info(f"📧 OTP for {normalized}: {otp} (expires in 5 seconds)")
         
         return jsonify({
-            "success": True, 
-            "message": "OTP sent to your email"
+            "success": True,
+            "otp": otp,
+            "identifier": normalized
         })
-            
     except Exception as e:
-        logger.error(f"Forgot password error: {e}")
+        logger.error(f"Get OTP error: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 @app.route("/resend_otp", methods=["POST"])
 def resend_otp():
     try:
         data = request.get_json()
-        email = data.get("email", "").strip().lower()
+        identifier = data.get("identifier", "").strip()
         
-        if not email:
-            return jsonify({"error": "Email required"}), 400
+        if not identifier:
+            return jsonify({"error": "Identifier required"}), 400
+            
+        normalized = normalize_identifier(identifier)
+        users = load_users()
+        
+        if normalized not in users:
+            return jsonify({"error": "No account found"}), 404
             
         otp = generate_otp()
-        store_otp(email, otp)
-        send_otp(email, otp)
+        store_otp(normalized, otp)
+        
+        logger.info(f"📧 New OTP for {normalized}: {otp} (expires in 5 seconds)")
         
         return jsonify({
             "success": True,
-            "message": "New OTP sent"
+            "message": "New OTP generated",
+            "otp": otp
         })
     except Exception as e:
         logger.error(f"Resend OTP error: {e}")
@@ -345,25 +379,26 @@ def resend_otp():
 def verify_reset_otp():
     try:
         data = request.get_json()
-        email = data.get("email", "").strip().lower()
+        identifier = data.get("identifier", "").strip()
         otp = data.get("otp", "").strip()
 
-        if not email or not otp:
+        if not identifier or not otp:
             return jsonify({"error": "All fields required"}), 400
 
-        result = verify_otp(email, otp)
+        normalized = normalize_identifier(identifier)
+        result = verify_otp(normalized, otp)
         
         if result == "valid":
-            session["reset_verified"] = email
+            session["reset_verified"] = normalized
             return jsonify({"success": True, "message": "OTP verified"})
         elif result == "expired":
             return jsonify({"error": "OTP expired. Request a new one."}), 401
         elif result == "resend":
             new_otp = generate_otp()
-            store_otp(email, new_otp)
-            send_otp(email, new_otp)
+            store_otp(normalized, new_otp)
             return jsonify({
-                "error": "Too many attempts. A new OTP has been sent."
+                "error": "Too many attempts. A new OTP has been generated.",
+                "new_otp": new_otp
             }), 401
         else:
             return jsonify({"error": "Invalid OTP"}), 401
@@ -383,13 +418,13 @@ def reset_password():
         if len(new_password) < 6:
             return jsonify({"error": "Password must be at least 6 characters"}), 400
             
-        email = session["reset_verified"]
+        user_id = session["reset_verified"]
         users = load_users()
         
-        if email not in users:
+        if user_id not in users:
             return jsonify({"error": "User not found"}), 404
             
-        users[email]["password"] = hash_password(new_password)
+        users[user_id]["password"] = hash_password(new_password)
         save_users(users)
         session.pop("reset_verified", None)
         return jsonify({"success": True, "message": "Password reset successful"})
@@ -413,6 +448,7 @@ def check_auth():
 # ==========================
 
 user_data = {}
+user_greetings = {}  # Store greeting status per user
 
 def get_user_data():
     user_id = session.get("user_id")
@@ -460,9 +496,31 @@ QUESTION:
 ANSWER:
 """
 
+def generate_greeting(filename, chunks_count):
+    """Generate a personalized greeting based on the uploaded document"""
+    greetings = [
+        f"🎉 Awesome! I've just finished reading '{filename}'. It's broken down into {chunks_count} sections. Feel free to ask me anything about it!",
+        f"📚 Great! '{filename}' is now ready for queries. I've split it into {chunks_count} parts for better understanding. What would you like to know?",
+        f"✨ Perfect! Your document '{filename}' has been successfully processed into {chunks_count} chunks. I'm here to help you explore its contents!",
+        f"📖 Excellent! '{filename}' is loaded and ready. With {chunks_count} sections to reference, I can answer your questions in detail. Ask away!",
+        f"🚀 Success! I've indexed '{filename}' with {chunks_count} chunks. Now you can ask me anything about the document content!",
+        f"💡 All set! '{filename}' has been processed into {chunks_count} chunks. I'm ready to assist you with any questions!",
+        f"📑 Done! '{filename}' is now in my knowledge base with {chunks_count} sections. What would you like to explore?",
+        f"🌟 Fantastic! I've analyzed '{filename}' and created {chunks_count} reference points. How can I help you today?",
+        f"📊 Ready to go! '{filename}' has been chunked into {chunks_count} pieces for precise answers. Your questions are welcome!",
+        f"🎯 Perfect upload! '{filename}' is fully processed with {chunks_count} chunks. I'm excited to help you dive into this document!"
+    ]
+    return random.choice(greetings)
+
 @app.route("/")
 def home():
+    """Main application page"""
     return render_template("index.html")
+
+@app.route("/login-page")
+def login_page():
+    """Separate login page"""
+    return render_template("login.html")
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -473,6 +531,8 @@ def upload():
     file = request.files["file"]
     if file.filename == "":
         return jsonify({"error": "No file selected"}), 400
+    
+    filename = file.filename
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         file.save(tmp.name)
         path = tmp.name
@@ -482,24 +542,52 @@ def upload():
     if not user_data_obj:
         return jsonify({"error": "Session error"}), 401
     chunks = build_db(text, user_data_obj)
-    return jsonify({"ready": True, "chunks": chunks})
+    
+    # Generate and store greeting for this user
+    user_id = session["user_id"]
+    greeting = generate_greeting(filename, chunks)
+    user_greetings[user_id] = greeting
+    
+    return jsonify({
+        "ready": True, 
+        "chunks": chunks,
+        "greeting": greeting,
+        "filename": filename
+    })
+
+@app.route("/get_greeting", methods=["GET"])
+def get_greeting():
+    """Get the stored greeting for the current user"""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Not logged in"}), 401
+    
+    greeting = user_greetings.get(user_id)
+    if greeting:
+        return jsonify({"greeting": greeting})
+    return jsonify({"greeting": None})
 
 @app.route("/ask", methods=["POST"])
 def ask():
     if "user_id" not in session:
         return jsonify({"answer": "Please login first"}), 401
     
-    if groq_client is None:
-        return jsonify({"answer": "Groq API not configured. Please check your API key."}), 500
-        
     data = request.get_json()
     question = data.get("question", "").strip()
     if not question:
         return jsonify({"answer": "Empty question"})
+    
+    # Check if it's a casual greeting
+    if is_casual_greeting(question):
+        response = get_casual_response(question)
+        return jsonify({"answer": response, "type": "greeting"})
+    
+    if groq_client is None:
+        return jsonify({"answer": "Groq API not configured. Please check your API key."}), 500
         
     user_data_obj = get_user_data()
     if not user_data_obj or user_data_obj["vectorizer"] is None:
-        return jsonify({"answer": "Upload PDF first"})
+        return jsonify({"answer": "Please upload a PDF first to ask questions about it."})
         
     try:
         q_vec = user_data_obj["vectorizer"].transform([question])
@@ -512,7 +600,13 @@ def ask():
             messages=[{"role": "user", "content": build_prompt(question, context)}],
             temperature=0.2
         )
-        return jsonify({"answer": completion.choices[0].message.content})
+        answer = completion.choices[0].message.content
+        
+        # If the answer is "Not found in document" and it's a question, provide a helpful response
+        if "not found" in answer.lower() and len(question) > 10:
+            answer = "I couldn't find that specific information in the document. Could you rephrase your question or ask about something else from the PDF?"
+        
+        return jsonify({"answer": answer, "type": "document"})
     except Exception as e:
         logger.error(f"Ask error: {e}")
         return jsonify({"answer": f"Error: {str(e)}"}), 500
@@ -523,8 +617,7 @@ def health():
         "status": "running",
         "groq_available": groq_client is not None,
         "users_count": len(load_users()),
-        "otp_storage": len(OTP_STORAGE),
-        "gmail_configured": bool(GMAIL_SENDER and GMAIL_PASSWORD)
+        "otp_storage": len(OTP_STORAGE)
     }
     return jsonify(status)
 
@@ -533,4 +626,8 @@ def health():
 # ==========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    
+    logger.info(f"🚀 Starting server on port {port}")
+    logger.info(f"🔑 GROQ configured: {bool(GROQ_API_KEY)}")
+    
+    app.run(host="0.0.0.0", port=port, debug=True)
