@@ -1,5 +1,5 @@
 # ==========================
-# app.py - Complete Flask Application with Enhanced Greeting Support
+# app.py - Complete Flask Application with Railway Compatibility
 # ==========================
 
 from flask import Flask, request, jsonify, render_template, session
