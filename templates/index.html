@@ -3,725 +3,2496 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Research Assistant</title>
+    <title>IEEE Scholar AI · Research Paper Reader & Audio Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- KaTeX for High-Quality LaTeX Math Formula Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --bg-base: #090d16;
+            --sidebar-bg: #0f172a;
+            --panel-bg: #111e33;
+            --card-bg: #17253d;
+            --card-border: #1e355b;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #8b5cf6;
+            --accent-amber: #f59e0b;
+            --accent-green: #10b981;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: #1e293b;
+            --highlight-bg: rgba(59, 130, 246, 0.22);
+            --active-sentence: rgba(245, 158, 11, 0.28);
         }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0b1120;
-            color: #f0f4ff;
-            height: 100vh;
-            overflow: hidden;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background: var(--bg-base); color: var(--text-primary); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: #0f1a2b; }
-        ::-webkit-scrollbar-thumb { background: #2d4b7a; border-radius: 8px; }
-
-        .app {
-            display: grid;
-            grid-template-columns: 380px 1fr;
-            height: 100vh;
-            gap: 0;
-            background: #0b1120;
-        }
-
-        .left-panel {
-            background: #111d2f;
-            border-right: 1px solid #1e314a;
-            padding: 28px 20px;
-            overflow-y: auto;
-            backdrop-filter: blur(4px);
+        /* TOP NAVIGATION */
+        .top-nav {
+            height: 56px;
+            background: #0b1324;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .logo {
-            font-size: 32px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #8ab4ff, #3b82f6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .logo i {
-            -webkit-text-fill-color: initial;
-            color: #8ab4ff;
-            font-size: 28px;
-        }
-
-        .card {
-            background: #15273f;
-            border-radius: 24px;
-            padding: 22px 20px;
-            border: 1px solid #1e3452;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-            transition: 0.25s ease;
-        }
-        .card:hover {
-            border-color: #2f4b72;
-        }
-
-        .card h3 {
-            font-weight: 600;
-            font-size: 16px;
-            letter-spacing: 0.3px;
-            color: #b8cef0;
-            margin-bottom: 18px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .user-info {
-            display: none;
-            background: #1a2f4a;
-            border-radius: 40px;
-            padding: 10px 16px 10px 20px;
-            margin-top: 10px;
             align-items: center;
             justify-content: space-between;
-            border: 1px solid #2a4b7a;
-        }
-        .user-info.show {
-            display: flex;
-        }
-        .user-info .user-email {
-            font-weight: 500;
-            font-size: 14px;
-            color: #cadeff;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .user-info .logout-icon {
-            background: #2d3f5a;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 40px;
-            color: #f0f4ff;
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .user-info .logout-icon:hover {
-            background: #b91c1c;
+            padding: 0 20px;
+            z-index: 50;
+            flex-shrink: 0;
         }
 
-        #status {
-            font-size: 14px;
-            color: #a0bee3;
-            line-height: 1.6;
-            padding: 6px 4px;
-            min-height: 48px;
-        }
-
-        .file-upload-area {
+        .brand {
             display: flex;
-            flex-direction: column;
+            align-items: center;
             gap: 12px;
-        }
-        .file-upload-area input[type="file"] {
-            background: #0b1627;
-            border: 1px dashed #2f4b72;
-            border-radius: 40px;
-            padding: 12px 16px;
-            color: #b8cef0;
-            font-size: 13px;
-            cursor: pointer;
-        }
-        .file-upload-area input[type="file"]:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        .right-panel {
-            display: flex;
-            flex-direction: column;
-            background: #0d1524;
-            height: 100vh;
-        }
-
-        .chat-header {
-            padding: 18px 28px;
-            background: #111d2f;
-            border-bottom: 1px solid #1e314a;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .chat-header h2 {
-            font-weight: 600;
-            font-size: 20px;
-            color: #e8f0fe;
+            font-weight: 700;
+            font-size: 16px;
             letter-spacing: -0.2px;
         }
-        .chat-header .badge {
-            background: #1a2f4a;
-            padding: 6px 16px;
-            border-radius: 40px;
+
+        .brand-badge {
+            background: linear-gradient(135deg, #2563eb, #06b6d4);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-nav {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: var(--text-primary);
+            padding: 7px 14px;
+            border-radius: 8px;
             font-size: 13px;
-            font-weight: 500;
-            color: #b8cef0;
-            border: 1px solid #2a4b7a;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-nav:hover { background: #2a3a52; border-color: var(--accent-blue); color: #fff; }
+        .btn-nav.primary { background: linear-gradient(135deg, #2563eb, #3b82f6); border: none; color: #fff; }
+        .btn-nav.primary:hover { opacity: 0.95; transform: translateY(-1px); }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-left: 12px;
+            border-left: 1px solid #1e293b;
+        }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        /* 3-COLUMN WORKSPACE */
+        .workspace {
+            flex: 1;
+            display: flex;
+            height: calc(100vh - 56px);
+            overflow: hidden;
+        }
+
+        /* COLUMN 1: LEFT NAVIGATOR */
+        .col-left {
+            width: 300px;
+            min-width: 260px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .left-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: #0c1427;
+        }
+
+        .paper-meta-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+
+        .paper-title {
+            font-size: 13.5px;
+            font-weight: 700;
+            line-height: 1.4;
+            color: #f1f5f9;
+            margin-bottom: 6px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .paper-stats {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .paper-stats span {
+            background: #1e293b;
+            padding: 2px 7px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .left-tabs {
+            display: flex;
+            background: #090e1a;
+            border-bottom: 1px solid var(--border-color);
+            padding: 4px;
+            gap: 4px;
+        }
+        .left-tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .left-tab.active { background: #1e293b; color: #fff; }
+
+        .left-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .section-item {
+            background: var(--panel-bg);
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .section-item:hover { background: #1a2a44; border-color: #2a4365; }
+        .section-item.active { background: #172b4d; border-color: var(--accent-blue); }
+
+        .section-name {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #e2e8f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+
+        .section-audio-btn {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent-blue);
+            border: none;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .section-audio-btn:hover { background: var(--accent-blue); color: #fff; transform: scale(1.1); }
+
+        .equation-chip {
+            background: #0d192e;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            color: #38bdf8;
+            transition: all 0.2s;
+            word-break: break-all;
+        }
+        .equation-chip:hover { border-color: var(--accent-cyan); background: #12233f; }
+
+        /* EQUATION STUDIO CARD STYLES */
+        .equation-card {
+            background: #0d182e;
+            border: 1px solid #1e3a5f;
+            border-left: 3px solid var(--accent-cyan);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+        .equation-card:hover { border-color: var(--accent-cyan); background: #112340; }
+
+        .equation-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .equation-card-title {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #38bdf8;
+        }
+        .equation-math-render {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: #f1f5f9;
+            overflow-x: auto;
+            padding: 6px 0;
+            line-height: 1.4;
+        }
+        .equation-card-desc {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+        .equation-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 6px;
+            font-size: 10.5px;
+            color: var(--text-muted);
+        }
+
+        /* NOTES STUDIO STYLES */
+        .notes-creator-card {
+            background: #111d33;
+            border: 1px solid #1e355b;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .note-textarea {
+            width: 100%;
+            height: 70px;
+            background: #0b1324;
+            border: 1px solid #203657;
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: #fff;
+            font-size: 12.5px;
+            outline: none;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .note-textarea:focus { border-color: var(--accent-blue); }
+
+        .note-creator-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .note-tag-select {
+            background: #162642;
+            border: 1px solid #284470;
+            color: #38bdf8;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 5px 8px;
+            border-radius: 6px;
+            outline: none;
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .note-btn-add {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            border: none;
+            color: #fff;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .note-btn-add:hover { transform: scale(1.03); }
+
+        .notes-quick-actions {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .note-quick-action-btn {
+            flex: 1;
+            background: #13223b;
+            border: 1px solid #203960;
+            color: #94a3b8;
+            padding: 6px 4px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .note-quick-action-btn:hover { background: #1a2f52; color: #fff; border-color: var(--accent-cyan); }
+        .note-quick-action-btn.ai-btn { background: #1b1c44; border-color: #3b3a7a; color: #c4b5fd; }
+        .note-quick-action-btn.ai-btn:hover { background: #282963; color: #fff; border-color: #8b5cf6; }
+
+        .notes-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .note-card {
+            background: #0e1a2f;
+            border: 1px solid #1c3354;
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .note-card:hover { border-color: #2a4c7a; background: #12213b; }
+
+        .note-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .note-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .note-badge.tag-novelty { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+        .note-badge.tag-methodology { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+        .note-badge.tag-benchmark { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .note-badge.tag-limitation { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+        .note-badge.tag-finding { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .note-badge.tag-formula { background: rgba(6, 182, 212, 0.15); color: #22d3ee; }
+        .note-badge.tag-general { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+
+        .note-card-body {
+            font-size: 12.5px;
+            color: #e2e8f0;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .note-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10.5px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .note-card-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .note-card-action-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 11px;
+            padding: 2px;
+            transition: all 0.2s;
+        }
+        .note-card-action-btn:hover { color: #fff; }
+        .note-card-action-btn.del:hover { color: #f87171; }
+
+        /* COLUMN 2: CENTER PAPER READER */
+        .col-center {
+            flex: 1;
+            background: var(--bg-base);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .reader-toolbar {
+            height: 48px;
+            background: #0d1527;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            flex-shrink: 0;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tool-btn {
+            background: #19253c;
+            border: 1px solid #283a5a;
+            color: var(--text-secondary);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .tool-btn:hover { color: #fff; border-color: var(--accent-blue); }
+        .tool-btn.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+
+        .search-paper-box {
+            background: #111b2e;
+            border: 1px solid #1e2e4a;
+            border-radius: 6px;
+            padding: 4px 10px;
             display: flex;
             align-items: center;
             gap: 6px;
+            width: 220px;
+        }
+        .search-paper-box input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-size: 12px;
+            width: 100%;
         }
 
-        .chat-messages {
+        .reader-viewport {
             flex: 1;
             overflow-y: auto;
-            padding: 24px 28px 16px;
+            padding: 30px 48px;
+            background: #0a0f1d;
+            scroll-behavior: smooth;
+        }
+
+        .paper-article {
+            max-width: 820px;
+            margin: 0 auto;
+            font-family: 'Newsreader', Georgia, serif;
+            font-size: 17px;
+            line-height: 1.75;
+            color: #cbd5e1;
+        }
+
+        .paper-article h1 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 26px;
+            font-weight: 800;
+            color: #f8fafc;
+            line-height: 1.3;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .paper-article h2 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 19px;
+            font-weight: 700;
+            color: #93c5fd;
+            margin: 32px 0 14px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #1e355b;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .paper-article h3 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #cbd5e1;
+            margin: 20px 0 10px;
+        }
+
+        .paper-article p {
+            margin-bottom: 16px;
+            text-align: justify;
+        }
+
+        .active-reading-sentence {
+            background: var(--active-sentence);
+            border-radius: 3px;
+            box-shadow: 0 0 0 2px var(--active-sentence);
+            color: #fff;
+            transition: all 0.2s;
+        }
+
+        .formula-card {
+            background: #0d182b;
+            border: 1px solid #1d3356;
+            border-left: 4px solid var(--accent-cyan);
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin: 18px 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: #38bdf8;
+            overflow-x: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pdf-frame-container {
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+        .pdf-frame-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* COLUMN 3: RIGHT AUDIO STUDIO & AI SCHOLAR */
+        .col-right {
+            width: 400px;
+            min-width: 340px;
+            background: var(--sidebar-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .studio-nav-tabs {
+            display: flex;
+            background: #090e1a;
+            border-bottom: 1px solid var(--border-color);
+            padding: 6px;
+            gap: 6px;
+        }
+        .studio-nav-tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 12.5px;
+            font-weight: 600;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .studio-nav-tab.active { background: #1e293b; color: #fff; }
+
+        .studio-panel {
+            flex: 1;
+            overflow-y: auto;
+            display: none;
+            flex-direction: column;
+        }
+        .studio-panel.active { display: flex; }
+
+        /* AUDIO PLAYER HERO WIDGET */
+        .audio-master-card {
+            background: linear-gradient(145deg, #101d36 0%, #0c1527 100%);
+            border-bottom: 1px solid #1e355b;
+            padding: 18px 20px;
+        }
+
+        .audio-now-playing {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .audio-icon-pulse {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 16px;
+            flex-shrink: 0;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .audio-track-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        .audio-track-title {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #f8fafc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .audio-track-sub {
+            font-size: 11px;
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        .audio-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .btn-audio-circle {
+            background: #1e2e4a;
+            border: 1px solid #2a436a;
+            color: #fff;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .btn-audio-circle:hover { background: #283f66; transform: scale(1.08); }
+        .btn-audio-circle.play-main {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #2563eb, #06b6d4);
+            border: none;
+            font-size: 18px;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        }
+
+        .audio-progress-bar {
+            width: 100%;
+            height: 5px;
+            background: #1e293b;
+            border-radius: 4px;
+            position: relative;
+            cursor: pointer;
+            margin-bottom: 6px;
+        }
+        .audio-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+            border-radius: 4px;
+            width: 0%;
+        }
+
+        .audio-time-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .audio-options-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+            font-size: 11.5px;
+            color: var(--text-secondary);
+        }
+
+        .speed-pill-select {
+            background: #16243d;
+            border: 1px solid #22385c;
+            color: #38bdf8;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* PODCAST STUDIO */
+        .podcast-section {
+            padding: 16px;
             display: flex;
             flex-direction: column;
             gap: 14px;
         }
 
-        .msg {
-            padding: 14px 20px;
-            border-radius: 20px;
-            max-width: 80%;
-            line-height: 1.7;
-            font-size: 15px;
-            word-wrap: break-word;
-            white-space: pre-wrap;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            animation: slideIn 0.3s ease;
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .msg.user {
-            align-self: flex-end;
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            color: white;
-            border-bottom-right-radius: 6px;
-        }
-        .msg.bot {
-            align-self: flex-start;
-            background: #182b42;
-            color: #e8f0fe;
-            border-bottom-left-radius: 6px;
-            border: 1px solid #243b58;
-        }
-        
-        .msg.greeting {
-            align-self: flex-start;
-            background: linear-gradient(135deg, #1a3a5a, #0d2640);
-            color: #e8f0fe;
-            border: 1px solid #2a4b7a;
-            border-bottom-left-radius: 6px;
-            font-size: 16px;
-            padding: 16px 24px;
-        }
-        
-        .msg.greeting .greeting-icon {
-            font-size: 24px;
-            margin-right: 10px;
-        }
-        
-        .msg.greeting .greeting-text {
-            display: inline;
-        }
-        
-        .msg.casual-greeting {
-            align-self: flex-start;
-            background: linear-gradient(135deg, #1a4a3a, #0d2a20);
-            color: #e8f0fe;
-            border: 1px solid #2a6a4a;
-            border-bottom-left-radius: 6px;
-            font-size: 16px;
-            padding: 14px 22px;
+        .podcast-banner {
+            background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 100%);
+            border: 1px solid #3730a3;
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
         }
 
-        .chat-input-area {
-            padding: 16px 28px 24px;
-            background: #0d1524;
-            border-top: 1px solid #1e314a;
-        }
-        .input-row {
-            display: flex;
-            gap: 12px;
-            align-items: flex-end;
-        }
-        .input-row textarea {
-            flex: 1;
-            background: #0f1a2b;
-            border: 1px solid #1e3452;
-            border-radius: 40px;
-            padding: 14px 20px;
-            color: white;
-            font-size: 15px;
-            resize: none;
-            outline: none;
-            min-height: 56px;
-            max-height: 140px;
-            line-height: 1.5;
-            transition: 0.2s;
-        }
-        .input-row textarea:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px #3b82f622;
-        }
-        .input-row textarea:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
+        .podcast-banner h4 { font-size: 14px; color: #c7d2fe; margin-bottom: 4px; }
+        .podcast-banner p { font-size: 12px; color: #94a3b8; line-height: 1.4; margin-bottom: 10px; }
 
-        .send-btn {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            border: none;
-            padding: 14px 28px;
-            border-radius: 40px;
-            font-weight: 700;
-            font-size: 15px;
-            color: white;
-            cursor: pointer;
-            min-width: 100px;
-            transition: 0.2s;
-            box-shadow: 0 4px 12px #1e4b8a55;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .send-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px #1e4b8a88;
-        }
-        .send-btn:disabled {
-            opacity: 0.4;
-            transform: none;
-            cursor: not-allowed;
-        }
-
-        .login-prompt {
+        .podcast-dialogue-feed {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            padding: 20px 0;
+            gap: 10px;
         }
 
-        .login-prompt .btn-primary {
-            width: auto;
-            padding: 14px 40px;
-            margin-top: 0;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            border: none;
-            border-radius: 60px;
-            font-weight: 700;
-            font-size: 15px;
-            color: white;
-            cursor: pointer;
-            transition: 0.2s;
-            box-shadow: 0 6px 16px #1e4b8a55;
+        .podcast-turn {
+            background: #111d31;
+            border: 1px solid #1c3254;
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+        .podcast-turn.speaker-alex { border-left: 3px solid #38bdf8; }
+        .podcast-turn.speaker-sam { border-left: 3px solid #a855f7; }
+        .podcast-turn.active-turn { background: #182a47; border-color: var(--accent-amber); box-shadow: 0 0 10px rgba(245, 158, 11, 0.2); }
+
+        .speaker-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            text-decoration: none;
+            font-weight: 700;
+            font-size: 12px;
+            color: #fff;
+            flex-shrink: 0;
         }
-        .login-prompt .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 28px #1e4b8a88;
+        .speaker-avatar.alex { background: linear-gradient(135deg, #0284c7, #06b6d4); }
+        .speaker-avatar.sam { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+
+        .turn-content { flex: 1; }
+        .turn-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+        .turn-name { font-weight: 700; color: #e2e8f0; }
+        .turn-text { font-size: 13px; line-height: 1.5; color: #cbd5e1; }
+
+        /* SCHOLAR CHAT PANEL */
+        .chat-feed {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
-        .upload-status {
-            margin-top: 10px;
-            padding: 10px 16px;
-            border-radius: 40px;
+        .chat-bubble {
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            line-height: 1.6;
+            word-break: break-word;
+            position: relative;
+        }
+        .chat-bubble.user {
+            background: #1d3557;
+            align-self: flex-end;
+            max-width: 85%;
+            border-bottom-right-radius: 2px;
+        }
+        .chat-bubble.scholar {
+            background: #111e33;
+            border: 1px solid #1e355b;
+            border-left: 3px solid var(--accent-blue);
+            align-self: flex-start;
+            max-width: 95%;
+        }
+
+        .prompt-chips-bar {
+            display: flex;
+            gap: 6px;
+            padding: 8px 14px;
+            overflow-x: auto;
+            background: #0a1120;
+            border-top: 1px solid var(--border-color);
+        }
+        .prompt-chip {
+            background: #142138;
+            border: 1px solid #203456;
+            color: #94a3b8;
+            font-size: 11.5px;
+            padding: 5px 10px;
+            border-radius: 14px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .prompt-chip:hover { color: #38bdf8; border-color: var(--accent-blue); background: #192d4d; }
+
+        .chat-input-area {
+            padding: 10px 14px;
+            background: #0d1527;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .chat-input {
+            flex: 1;
+            background: #16243b;
+            border: 1px solid #253a5e;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #fff;
             font-size: 13px;
-            background: #0f1a2b;
-            border: 1px solid #1e3452;
-            display: none;
+            outline: none;
         }
-        .upload-status.show {
-            display: block;
-        }
-        .upload-status.success {
-            border-color: #2a6a4a;
-            color: #4ade80;
-        }
-        .upload-status.error {
-            border-color: #6a2a2a;
-            color: #f87171;
+        .chat-input:focus { border-color: var(--accent-blue); }
+
+        .chat-send-btn {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            border: none;
+            color: #fff;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
         }
 
-        @media (max-width: 820px) {
-            .app {
-                grid-template-columns: 1fr;
-            }
-            .left-panel {
-                display: none;
-            }
-            .chat-messages {
-                padding: 16px;
-            }
-            .chat-header {
-                padding: 14px 18px;
-            }
-            .chat-input-area {
-                padding: 12px 18px 18px;
-            }
+        /* MODALS */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-card {
+            background: #0f1a2e;
+            border: 1px solid #243d66;
+            width: 100%;
+            max-width: 480px;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        }
+
+        .tab-toggles {
+            display: flex;
+            background: #090e1a;
+            padding: 4px;
+            border-radius: 8px;
+            gap: 4px;
+            margin: 14px 0;
+        }
+        .tab-toggle-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .tab-toggle-btn.active { background: #1e355b; color: #fff; }
+
+        .modal-input {
+            width: 100%;
+            background: #16243d;
+            border: 1px solid #28426d;
+            border-radius: 8px;
+            padding: 12px;
+            color: #fff;
+            font-size: 13.5px;
+            outline: none;
+            margin-bottom: 16px;
+        }
+
+        /* TOAST */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #17253d;
+            border: 1px solid #2a4674;
+            border-left: 4px solid var(--accent-cyan);
+            color: #f8fafc;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            display: none;
+            z-index: 2000;
         }
     </style>
 </head>
 <body>
-<div class="app">
-    <!-- LEFT PANEL -->
-    <div class="left-panel">
-        <div class="logo"><i class="fas fa-file-pdf"></i> PDF Chat</div>
 
-        <div class="card">
-            <h3><i class="fas fa-user"></i> Account</h3>
-            <div id="userInfo" class="user-info">
-                <span class="user-email" id="userDisplay"></span>
-                <button class="logout-icon" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
-            </div>
-            <div id="loginPrompt" class="login-prompt">
-                <p style="color: #9bb4d6; font-size: 14px; text-align: center;">
-                    <i class="fas fa-lock"></i> Please login to continue
-                </p>
-                <a href="/login-page" class="btn-primary">
-                    <i class="fas fa-sign-in-alt"></i> Go to Login
-                </a>
-            </div>
+    <!-- TOP HEADER -->
+    <header class="top-nav">
+        <div class="brand">
+            <i class="fas fa-microchip" style="color:var(--accent-cyan); font-size:18px;"></i>
+            <span>IEEE Scholar AI</span>
+            <span class="brand-badge">Paper & Audio Studio</span>
         </div>
 
-        <div class="card">
-            <h3><i class="fas fa-upload"></i> Upload PDF</h3>
-            <div class="file-upload-area">
-                <input type="file" id="file" accept=".pdf" disabled/>
-                <button class="btn-primary" onclick="uploadFile()" id="uploadBtn" disabled>
-                    <i class="fas fa-cloud-upload-alt"></i> Upload & Process
-                </button>
-                <div id="uploadStatus" class="upload-status"></div>
+        <div class="nav-actions">
+            <button class="btn-nav primary" onclick="openUploadModal()"><i class="fas fa-file-arrow-up"></i> Load Paper / ArXiv</button>
+            <button class="btn-nav" onclick="triggerPodcastGeneration()"><i class="fas fa-podcast" style="color:#c084fc;"></i> Generate Podcast</button>
+            <button class="btn-nav" onclick="triggerCritique()"><i class="fas fa-microscope" style="color:#38bdf8;"></i> Peer Review Critique</button>
+            
+            <div class="user-menu">
+                <div class="user-avatar" id="navAvatar">U</div>
+                <div style="font-size:13px; font-weight:600;" id="navUserName">Scholar</div>
+                <i class="fas fa-right-from-bracket" title="Logout" style="color:var(--text-muted); cursor:pointer; margin-left:8px;" onclick="logout()"></i>
             </div>
         </div>
+    </header>
 
-        <div id="status"><i class="fas fa-info-circle"></i> 🔑 Login to get started.</div>
+    <!-- 3-COLUMN MAIN WORKSPACE -->
+    <div class="workspace">
+        
+        <!-- COLUMN 1: LEFT SECTION & EQUATION NAVIGATOR -->
+        <aside class="col-left">
+            <div class="left-header">
+                <div class="paper-meta-card">
+                    <div class="paper-title" id="sidePaperTitle">No paper loaded</div>
+                    <div class="paper-stats">
+                        <span id="statPages"><i class="fas fa-file-lines"></i> 0 pgs</span>
+                        <span id="statSections"><i class="fas fa-list-ol"></i> 0 sections</span>
+                        <span id="statAudioTime"><i class="fas fa-headphones"></i> ~0m</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="left-tabs">
+                <button class="left-tab active" id="tabNavSections" onclick="switchLeftTab('sections')">📑 Sections</button>
+                <button class="left-tab" id="tabNavEquations" onclick="switchLeftTab('equations')">🧮 Equations</button>
+                <button class="left-tab" id="tabNavNotes" onclick="switchLeftTab('notes')">📝 Notes</button>
+            </div>
+
+            <div class="left-body" id="leftSectionsContainer">
+                <div style="text-align:center; padding:30px 10px; color:var(--text-muted); font-size:12px;">
+                    <i class="fas fa-file-pdf" style="font-size:28px; margin-bottom:8px; opacity:0.5;"></i>
+                    <p>Load an IEEE PDF to see automatic 2-column section breakdown.</p>
+                </div>
+            </div>
+
+            <!-- EQUATIONS STUDIO TAB -->
+            <div class="left-body" id="leftEquationsContainer" style="display:none;">
+                <!-- EQUATION CREATOR CARD -->
+                <div class="notes-creator-card">
+                    <input type="text" id="equationNameInput" class="modal-input" style="padding:7px 10px; font-size:12px; margin-bottom:6px; background:#0b1324;" placeholder="Formula Name (e.g., Objective Function / Eq. 1)" />
+                    <textarea id="equationExpressionInput" class="note-textarea" style="height:55px; font-family:'JetBrains Mono',monospace; font-size:12px;" placeholder="Enter LaTeX or math (e.g., \mathcal{L}_{total} = \alpha L_1 + \beta L_2)" onkeydown="handleEquationKey(event)"></textarea>
+                    
+                    <div style="display:flex; justify-content:flex-end;">
+                        <button class="note-btn-add" onclick="submitAddEquation()"><i class="fas fa-plus"></i> Add Formula</button>
+                    </div>
+                </div>
+
+                <!-- QUICK ACTIONS -->
+                <div class="notes-quick-actions">
+                    <button class="note-quick-action-btn ai-btn" onclick="autoExtractPaperEquations()" id="btnAutoExtractEqs" title="Scan paper with AI to extract and LaTeX-format all equations">
+                        <i class="fas fa-wand-magic-sparkles"></i> Auto-Extract All
+                    </button>
+                    <button class="note-quick-action-btn" onclick="exportEquationsAsTex()" title="Export all equations as LaTeX / Markdown">
+                        <i class="fas fa-download"></i> Export (.tex)
+                    </button>
+                </div>
+
+                <!-- EQUATIONS LIST -->
+                <div class="notes-feed" id="savedEquationsList">
+                    <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">
+                        No formulas extracted yet.<br>Click <strong>Auto-Extract All</strong> or type above to add formulas.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- NOTES STUDIO TAB -->
+            <div class="left-body" id="leftNotesContainer" style="display:none;">
+                <!-- NOTE CREATOR CARD -->
+                <div class="notes-creator-card">
+                    <textarea id="noteTextInput" class="note-textarea" placeholder="Type key insight, equation takeaway, or research note... (Ctrl+Enter to save)" onkeydown="handleNoteKey(event)"></textarea>
+                    
+                    <div class="note-creator-controls">
+                        <select id="noteTagSelect" class="note-tag-select">
+                            <option value="Novelty">🎯 Novelty</option>
+                            <option value="Methodology">🔬 Methodology</option>
+                            <option value="Benchmark">📊 Benchmark</option>
+                            <option value="Limitation">⚠️ Limitation</option>
+                            <option value="Key Finding" selected>💡 Key Finding</option>
+                            <option value="Formula">🧮 Formula</option>
+                            <option value="General">📌 General Note</option>
+                        </select>
+                        <button class="note-btn-add" onclick="submitAddNote()"><i class="fas fa-plus"></i> Add Point</button>
+                    </div>
+                </div>
+
+                <!-- ACTION BUTTONS -->
+                <div class="notes-quick-actions">
+                    <button class="note-quick-action-btn ai-btn" onclick="autoExtractTakeaways()" id="btnAutoExtractNotes" title="Extract 5-7 key study points automatically">
+                        <i class="fas fa-wand-magic-sparkles"></i> Auto-Extract
+                    </button>
+                    <button class="note-quick-action-btn" onclick="exportNotesAsMarkdown()" title="Export notes as Markdown file">
+                        <i class="fas fa-download"></i> Export (.md)
+                    </button>
+                    <button class="note-quick-action-btn" onclick="clearAllNotes()" title="Clear all saved notes">
+                        <i class="fas fa-trash-can"></i> Clear
+                    </button>
+                </div>
+
+                <!-- NOTES LIST FEED -->
+                <div class="notes-feed" id="savedNotesList">
+                    <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">
+                        No study points added yet.<br>Type above or click <strong>Auto-Extract</strong> to capture key points.
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- COLUMN 2: CENTER ACADEMIC PAPER READER -->
+        <main class="col-center">
+            <div class="reader-toolbar">
+                <div class="toolbar-group">
+                    <button class="tool-btn active" id="btnModeArticle" onclick="switchReaderMode('article')"><i class="fas fa-book-open"></i> Clean Reader</button>
+                    <button class="tool-btn" id="btnModePdf" onclick="switchReaderMode('pdf')"><i class="fas fa-file-pdf"></i> Original PDF</button>
+                    <div style="width:1px; height:20px; background:#1e293b; margin:0 4px;"></div>
+                    <button class="tool-btn" onclick="adjustFontSize(-1)" title="Smaller text">A-</button>
+                    <button class="tool-btn" onclick="adjustFontSize(1)" title="Larger text">A+</button>
+                    <button class="tool-btn" id="btnColumnToggle" onclick="toggleColumns()" title="Toggle Double-Column View"><i class="fas fa-table-columns"></i> 2-Col</button>
+                </div>
+
+                <div class="toolbar-group">
+                    <div class="search-paper-box">
+                        <i class="fas fa-search" style="color:var(--text-muted); font-size:11px;"></i>
+                        <input type="text" id="paperSearchInput" placeholder="Search in paper..." oninput="searchPaperText()" />
+                    </div>
+                    <button class="btn-nav primary" style="padding:4px 10px; font-size:12px;" onclick="playCurrentArticle()"><i class="fas fa-volume-high"></i> Listen All</button>
+                </div>
+            </div>
+
+            <!-- STRUCTURED ARTICLE VIEWER -->
+            <div class="reader-viewport" id="readerViewport">
+                <article class="paper-article" id="paperArticleContent">
+                    <div style="text-align:center; padding:60px 20px;">
+                        <i class="fas fa-book-bookmark" style="font-size:48px; color:var(--accent-blue); margin-bottom:16px; opacity:0.7;"></i>
+                        <h1 style="font-size:22px;">Welcome to IEEE Scholar AI</h1>
+                        <p style="color:var(--text-secondary); max-width:540px; margin:0 auto; font-family:'Plus Jakarta Sans', sans-serif; font-size:14px;">
+                            Upload any double-column IEEE research paper or paste an ArXiv link to read, listen, analyze math equations, and generate multi-speaker research podcasts.
+                        </p>
+                        <button class="btn-nav primary" style="margin-top:20px;" onclick="openUploadModal()"><i class="fas fa-file-arrow-up"></i> Upload Paper to Begin</button>
+                    </div>
+                </article>
+            </div>
+
+            <!-- ORIGINAL PDF EMBED -->
+            <div class="pdf-frame-container" id="pdfFrameContainer">
+                <iframe id="pdfFrame" src=""></iframe>
+            </div>
+        </main>
+
+        <!-- COLUMN 3: RIGHT AUDIO STUDIO & AI SCHOLAR -->
+        <aside class="col-right">
+            <!-- MASTER AUDIO PLAYER HERO CARD -->
+            <div class="audio-master-card">
+                <div class="audio-now-playing">
+                    <div class="audio-icon-pulse" id="audioPulse"><i class="fas fa-headphones"></i></div>
+                    <div class="audio-track-info">
+                        <div class="audio-track-title" id="audioTrackTitle">Audio Narrator Idle</div>
+                        <div class="audio-track-sub" id="audioTrackSub">Ready to synthesize paper</div>
+                    </div>
+                </div>
+
+                <div class="audio-controls">
+                    <button class="btn-audio-circle" onclick="skipAudio(-10)" title="Back 10 seconds"><i class="fas fa-backward-step"></i></button>
+                    <button class="btn-audio-circle play-main" id="btnMasterPlay" onclick="toggleMasterAudio()"><i class="fas fa-play" id="masterPlayIcon"></i></button>
+                    <button class="btn-audio-circle" onclick="skipAudio(10)" title="Forward 10 seconds"><i class="fas fa-forward-step"></i></button>
+                    <button class="btn-audio-circle" onclick="stopMasterAudio()" title="Stop"><i class="fas fa-stop"></i></button>
+                </div>
+
+                <div class="audio-progress-bar" id="audioProgressBar" onclick="seekAudio(event)">
+                    <div class="audio-progress-fill" id="audioProgressFill"></div>
+                </div>
+
+                <div class="audio-time-row">
+                    <span id="audioTimeElapsed">0:00</span>
+                    <span id="audioTimeTotal">0:00</span>
+                </div>
+
+                <div class="audio-options-row">
+                    <span>Speed: 
+                        <select class="speed-pill-select" id="audioSpeedSelect" onchange="changeAudioSpeed()">
+                            <option value="0.75">0.75×</option>
+                            <option value="1.0" selected>1.0×</option>
+                            <option value="1.25">1.25×</option>
+                            <option value="1.5">1.5×</option>
+                            <option value="2.0">2.0×</option>
+                        </select>
+                    </span>
+                    <span>Voice: 
+                        <select class="speed-pill-select" id="audioVoiceSelect" onchange="changeVoice()"></select>
+                    </span>
+                </div>
+            </div>
+
+            <!-- STUDIO NAV TABS -->
+            <div class="studio-nav-tabs">
+                <button class="studio-nav-tab active" id="tabStudioPodcast" onclick="switchStudioTab('podcast')"><i class="fas fa-podcast"></i> AI Podcast</button>
+                <button class="studio-nav-tab" id="tabStudioChat" onclick="switchStudioTab('chat')"><i class="fas fa-brain"></i> Scholar Chat</button>
+                <button class="studio-nav-tab" id="tabStudioMath" onclick="switchStudioTab('math')"><i class="fas fa-calculator"></i> Equation</button>
+            </div>
+
+            <!-- PANEL 1: AI PODCAST STUDIO -->
+            <div class="studio-panel active" id="panelStudioPodcast">
+                <div class="podcast-section">
+                    <div class="podcast-banner">
+                        <h4>🎙️ NotebookLM-Style Research Podcast</h4>
+                        <p>Listen to a 2-host conversational breakdown (Alex & Dr. Sam) analyzing core innovations & benchmarks.</p>
+                        <button class="btn-nav primary" style="width:100%; justify-content:center;" onclick="triggerPodcastGeneration()" id="btnGenPodcast">
+                            <i class="fas fa-wand-magic-sparkles"></i> Generate Episode
+                        </button>
+                    </div>
+
+                    <div class="podcast-dialogue-feed" id="podcastDialogueFeed">
+                        <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">
+                            Click "Generate Episode" to synthesize a 2-voice conversational breakdown.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL 2: SCHOLAR RAG CHAT -->
+            <div class="studio-panel" id="panelStudioChat">
+                <div class="chat-feed" id="scholarChatFeed">
+                    <div class="chat-bubble scholar">
+                        👋 <strong>Welcome, Fellow Researcher!</strong><br>
+                        Ask any question about the methodology, mathematical formulations, baseline benchmarks, or limitations of this paper.
+                    </div>
+                </div>
+
+                <div class="prompt-chips-bar">
+                    <div class="prompt-chip" onclick="quickAsk('What is the core novelty and main technical contribution?')">🎯 Core Novelty</div>
+                    <div class="prompt-chip" onclick="quickAsk('Explain the methodology and system architecture step-by-step.')">🔬 Methodology</div>
+                    <div class="prompt-chip" onclick="quickAsk('What are the key assumptions, limitations, and threats to validity?')">⚠️ Limitations</div>
+                    <div class="prompt-chip" onclick="quickAsk('Summarize the benchmark results and comparative baseline improvements.')">📊 Benchmarks</div>
+                </div>
+
+                <div class="chat-input-area">
+                    <input type="text" id="scholarInputText" class="chat-input" placeholder="Ask about equations, proofs, or results..." onkeydown="onScholarEnter(event)" />
+                    <button class="chat-send-btn" onclick="sendScholarQuery()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+
+            <!-- PANEL 3: EQUATION DECONSTRUCTOR -->
+            <div class="studio-panel" id="panelStudioMath">
+                <div style="padding:16px;">
+                    <div style="font-size:13px; font-weight:700; margin-bottom:8px; color:var(--accent-cyan);">🧮 Mathematical Formula Deconstructor</div>
+                    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">Paste or select any equation from the paper to get an intuitive step-by-step breakdown.</p>
+                    
+                    <textarea id="customEquationInput" class="modal-input" style="height:80px; font-family:'JetBrains Mono', monospace; font-size:12px;" placeholder="\mathcal{L}_{total} = \alpha \mathcal{L}_{CE} + \beta \mathcal{L}_{KL}"></textarea>
+                    
+                    <button class="btn-nav primary" style="width:100%; justify-content:center; margin-bottom:16px;" onclick="explainCustomEquation()">
+                        <i class="fas fa-magnifying-glass"></i> Deconstruct Equation
+                    </button>
+
+                    <div id="equationExplResult" style="font-size:13px; line-height:1.6; color:#cbd5e1;"></div>
+                </div>
+            </div>
+
+        </aside>
+
     </div>
 
-    <!-- RIGHT PANEL -->
-    <div class="right-panel">
-        <div class="chat-header">
-            <h2><i class="fas fa-robot"></i> Research Assistant</h2>
-            <span class="badge" id="userBadge"><i class="fas fa-lock"></i> Not logged in</span>
-        </div>
+    <!-- UPLOAD PAPER MODAL -->
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal-card">
+            <div style="font-size:16px; font-weight:700; margin-bottom:4px; color:#f8fafc;">📂 Open Research Paper</div>
+            <div style="font-size:12px; color:var(--text-secondary);">Upload an IEEE 2-column PDF or paste an ArXiv abstract / PDF URL:</div>
 
-        <div class="chat-messages" id="chat">
-            <div class="msg bot"><i class="fas fa-robot"></i> 👋 Login to upload and chat with your PDFs.</div>
-        </div>
+            <div class="tab-toggles">
+                <button class="tab-toggle-btn active" id="btnUploadTabPdf" onclick="toggleUploadTab('pdf')">PDF File</button>
+                <button class="tab-toggle-btn" id="btnUploadTabUrl" onclick="toggleUploadTab('url')">ArXiv / Web Link</button>
+            </div>
 
-        <div class="chat-input-area">
-            <div class="input-row">
-                <textarea id="q" placeholder="Ask anything..." disabled></textarea>
-                <button class="send-btn" id="sendBtn" disabled onclick="ask()"><i class="fas fa-paper-plane"></i> Send</button>
+            <div id="uploadPanePdf">
+                <input type="file" id="paperFileInput" accept=".pdf" class="modal-input" />
+            </div>
+
+            <div id="uploadPaneUrl" style="display:none;">
+                <input type="url" id="paperUrlInput" placeholder="https://arxiv.org/abs/2301.00000 or IEEE link" class="modal-input" />
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button class="btn-nav" onclick="closeUploadModal()">Cancel</button>
+                <button class="btn-nav primary" id="btnProcessPaper" onclick="processPaperUpload()">Analyze & Ingest</button>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-// ==========================
-// DOM REFS & STATE
-// ==========================
-const chat = document.getElementById("chat");
-const input = document.getElementById("q");
-const statusDiv = document.getElementById("status");
-const uploadStatus = document.getElementById("uploadStatus");
-let isAuthenticated = false;
-let currentUser = "";
-let hasShownGreeting = false;
-let isProcessing = false;
+    <div id="toast"></div>
 
-// ==========================
-// UI FUNCTIONS
-// ==========================
-function updateUIForAuth(authenticated, user) {
-    const fileInput = document.getElementById("file");
-    const uploadBtn = document.getElementById("uploadBtn");
-    const sendBtn = document.getElementById("sendBtn");
-    const userInfo = document.getElementById("userInfo");
-    const loginPrompt = document.getElementById("loginPrompt");
-    const userBadge = document.getElementById("userBadge");
-    const userDisplay = document.getElementById("userDisplay");
+    <script>
+        // =========================================================
+        // STATE MANAGEMENT
+        // =========================================================
+        let currentPaper = null;
+        let activeSectionId = null;
+        let readerFontSize = 17;
+        let isTwoColumn = false;
+        let readerMode = 'article'; // 'article' or 'pdf'
 
-    if (authenticated) {
-        userInfo.classList.add("show");
-        loginPrompt.style.display = "none";
-        userDisplay.textContent = user;
-        userBadge.innerHTML = `<i class="fas fa-check-circle" style="color:#4ade80;"></i> ${user.substring(0, 16)}${user.length > 16 ? '…' : ''}`;
-        fileInput.disabled = false;
-        uploadBtn.disabled = false;
-        sendBtn.disabled = false;
-        input.disabled = false;
-        statusDiv.innerHTML = '<i class="fas fa-check-circle" style="color:#4ade80;"></i> Logged in. Upload a PDF to begin.';
-        addBotMessage("✅ Logged in successfully!");
-    } else {
-        userInfo.classList.remove("show");
-        loginPrompt.style.display = "flex";
-        userBadge.innerHTML = '<i class="fas fa-lock"></i> Not logged in';
-        fileInput.disabled = true;
-        uploadBtn.disabled = true;
-        sendBtn.disabled = true;
-        input.disabled = true;
-        statusDiv.innerHTML = '<i class="fas fa-info-circle"></i> 🔑 Please login to continue.';
-    }
-}
+        // Audio state
+        let ttsSynth = window.speechSynthesis;
+        let currentUtterance = null;
+        let audioQueue = [];
+        let audioIndex = 0;
+        let isAudioPlaying = false;
+        let isAudioPaused = false;
+        let availableVoices = [];
+        let activeAudioSource = 'article'; // 'article', 'section', or 'podcast'
+        let podcastScript = [];
+        let podcastPlayingTurn = -1;
 
-async function checkAuth() {
-    try {
-        const res = await fetch("/check_auth");
-        const data = await res.json();
-        if (data.authenticated) {
-            isAuthenticated = true;
-            currentUser = data.user;
-            updateUIForAuth(true, data.user);
-            // Check for any stored greeting
-            checkForGreeting();
-        } else {
-            isAuthenticated = false;
-            updateUIForAuth(false, "");
+        // =========================================================
+        // BOOTSTRAP
+        // =========================================================
+        async function bootstrap() {
+            try {
+                const res = await fetch("/check_auth", { credentials: "same-origin" });
+                const data = await res.json();
+                if (!data.authenticated) {
+                    window.location.href = "/login-page";
+                    return;
+                }
+                document.getElementById("navUserName").textContent = data.user;
+                document.getElementById("navAvatar").textContent = data.user[0].toUpperCase();
+
+                loadVoices();
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = loadVoices;
+                }
+
+                // Check if a paper is already loaded
+                const paperRes = await fetch("/api/paper/details");
+                const paperData = await paperRes.json();
+                if (paperData.loaded) {
+                    renderPaperData(paperData);
+                }
+
+                loadNotes();
+            } catch(e) {
+                console.error("Bootstrap error:", e);
+            }
         }
-    } catch (e) { console.log("Auth check error", e); }
-}
 
-async function checkForGreeting() {
-    try {
-        const res = await fetch("/get_greeting");
-        const data = await res.json();
-        if (data.greeting && !hasShownGreeting) {
-            hasShownGreeting = true;
-            addGreeting(data.greeting);
+        function showToast(msg) {
+            const t = document.getElementById("toast");
+            t.textContent = msg;
+            t.style.display = "block";
+            setTimeout(() => { t.style.display = "none"; }, 3500);
         }
-    } catch (e) { console.log("Greeting check error", e); }
-}
 
-// ==========================
-// AUTH ACTIONS
-// ==========================
-async function logout() {
-    try {
-        await fetch("/logout", { method: "POST" });
-        isAuthenticated = false;
-        currentUser = "";
-        hasShownGreeting = false;
-        updateUIForAuth(false, "");
-        addBotMessage("🔒 Logged out.");
-        chat.innerHTML = '<div class="msg bot"><i class="fas fa-robot"></i> 👋 Login to upload and chat with your PDFs.</div>';
-    } catch (e) { console.log("Logout error", e); }
-}
+        // =========================================================
+        // PAPER INGESTION (PDF / URL)
+        // =========================================================
+        function openUploadModal() { document.getElementById("uploadModal").style.display = "flex"; }
+        function closeUploadModal() { document.getElementById("uploadModal").style.display = "none"; }
 
-// ==========================
-// CHAT FUNCTIONS
-// ==========================
-function add(text, type) {
-    const div = document.createElement("div");
-    div.className = "msg " + type;
-    div.innerHTML = text;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-    return div;
-}
-
-function addBotMessage(text) { add(text, "bot"); }
-
-function addGreeting(text) {
-    const div = document.createElement("div");
-    div.className = "msg greeting";
-    div.innerHTML = `
-        <span class="greeting-icon">🎉</span>
-        <span class="greeting-text">${text}</span>
-    `;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-    return div;
-}
-
-function addCasualGreeting(text) {
-    const div = document.createElement("div");
-    div.className = "msg casual-greeting";
-    div.innerHTML = `👋 ${text}`;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-    return div;
-}
-
-function showUploadStatus(message, type) {
-    uploadStatus.textContent = message;
-    uploadStatus.className = 'upload-status show ' + type;
-}
-
-async function uploadFile() {
-    if (!isAuthenticated) { 
-        statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Please login first'; 
-        return; 
-    }
-    
-    const fileInput = document.getElementById("file");
-    const file = fileInput.files[0];
-    if (!file) { 
-        alert("Please select a PDF file"); 
-        return; 
-    }
-    
-    // Check if it's a PDF
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-        alert("Please select a valid PDF file");
-        return;
-    }
-    
-    const uploadBtn = document.getElementById("uploadBtn");
-    uploadBtn.disabled = true;
-    uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-    
-    showUploadStatus('⏳ Uploading and processing your document...', '');
-    statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ⏳ Processing PDF…';
-    
-    const fd = new FormData();
-    fd.append("file", file);
-    
-    try {
-        const res = await fetch("/upload", { method: "POST", body: fd });
-        const data = await res.json();
-        
-        if (data.error) { 
-            showUploadStatus('❌ ' + data.error, 'error');
-            statusDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ❌ ${data.error}`;
-            uploadBtn.disabled = false;
-            uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload & Process';
-            return; 
+        function toggleUploadTab(type) {
+            document.getElementById("btnUploadTabPdf").classList.toggle("active", type === 'pdf');
+            document.getElementById("btnUploadTabUrl").classList.toggle("active", type === 'url');
+            document.getElementById("uploadPanePdf").style.display = type === 'pdf' ? 'block' : 'none';
+            document.getElementById("uploadPaneUrl").style.display = type === 'url' ? 'block' : 'none';
         }
-        
-        // Success - show greeting
-        showUploadStatus(`✅ Document ready! ${data.chunks} chunks processed.`, 'success');
-        statusDiv.innerHTML = `<i class="fas fa-check-circle" style="color:#4ade80;"></i> ✅ PDF Ready · ${data.chunks} chunks`;
-        
-        // Add the greeting message to chat
-        if (data.greeting) {
-            addGreeting(data.greeting);
-            hasShownGreeting = true;
+
+        async function processPaperUpload() {
+            const btn = document.getElementById("btnProcessPaper");
+            btn.disabled = true;
+            btn.textContent = "Ingesting & De-noising 2-Columns...";
+
+            try {
+                const isPdf = document.getElementById("btnUploadTabPdf").classList.contains("active");
+                let res, data;
+
+                if (isPdf) {
+                    const file = document.getElementById("paperFileInput").files[0];
+                    if (!file) {
+                        showToast("Please choose a PDF paper file");
+                        btn.disabled = false;
+                        btn.textContent = "Analyze & Ingest";
+                        return;
+                    }
+                    const form = new FormData();
+                    form.append("file", file);
+                    res = await fetch("/upload_paper", { method: "POST", body: form });
+                } else {
+                    const url = document.getElementById("paperUrlInput").value.trim();
+                    if (!url) {
+                        showToast("Please enter an ArXiv or paper link");
+                        btn.disabled = false;
+                        btn.textContent = "Analyze & Ingest";
+                        return;
+                    }
+                    res = await fetch("/process_url", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ url })
+                    });
+                }
+
+                data = await res.json();
+                if (data.error) {
+                    showToast("❌ " + data.error);
+                } else {
+                    renderPaperData(data);
+                    closeUploadModal();
+                    showToast("✅ Paper ingested and structured!");
+                    
+                    // Render executive overview in chat
+                    if (data.overview_summary) {
+                        appendScholarMessage(data.overview_summary, "Executive Academic Overview");
+                    }
+                }
+            } catch(e) {
+                showToast("❌ Upload failed: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Analyze & Ingest";
+            }
         }
-        
-        // Add a follow-up message
-        setTimeout(() => {
-            addBotMessage("💡 You can now ask me any questions about the document!");
-        }, 500);
-        
-        // Clear the file input
-        fileInput.value = '';
-        
-    } catch (e) { 
-        showUploadStatus('❌ Upload failed. Please try again.', 'error');
-        statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ❌ Upload failed'; 
-    } finally {
-        uploadBtn.disabled = false;
-        uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload & Process';
-    }
-}
 
-async function ask() {
-    if (!isAuthenticated) { 
-        addBotMessage("❌ Please login first"); 
-        return; 
-    }
-    
-    if (isProcessing) return;
-    
-    const q = input.value.trim();
-    if (!q) return;
-    
-    // Show user message immediately
-    add(`<i class="fas fa-user"></i> ${q}`, "user");
-    input.value = "";
-    input.style.height = "56px";
-    
-    // Show thinking indicator
-    const bot = add('<i class="fas fa-spinner fa-spin"></i> Thinking…', "bot");
-    isProcessing = true;
-    
-    try {
-        const res = await fetch("/ask", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: q })
-        });
-        const data = await res.json();
-        
-        // Check if it's a casual greeting response
-        if (data.type === "greeting") {
-            // Replace the bot message with a styled casual greeting
-            bot.className = "msg casual-greeting";
-            bot.innerHTML = `👋 ${data.answer}`;
-        } else {
-            bot.innerHTML = `<i class="fas fa-robot"></i> ${data.answer || "No answer"}`;
+        // =========================================================
+        // RENDER STRUCTURED PAPER DATA
+        // =========================================================
+        function renderPaperData(data) {
+            currentPaper = data;
+            document.getElementById("sidePaperTitle").textContent = data.title || data.source_name;
+            document.getElementById("statPages").innerHTML = `<i class="fas fa-file-lines"></i> ${data.total_pages || 1} pgs`;
+            document.getElementById("statSections").innerHTML = `<i class="fas fa-list-ol"></i> ${(data.sections || []).length} sec`;
+            
+            // Calculate total listening time
+            let totalWords = (data.sections || []).reduce((acc, s) => acc + (s.word_count || 0), 0);
+            let estMins = Math.max(1, Math.round(totalWords / 140));
+            document.getElementById("statAudioTime").innerHTML = `<i class="fas fa-headphones"></i> ~${estMins}m`;
+
+            // Render PDF frame URL
+            if (data.file_url) {
+                document.getElementById("pdfFrame").src = data.file_url;
+            }
+
+            // Render Sections in Left Column
+            const secContainer = document.getElementById("leftSectionsContainer");
+            secContainer.innerHTML = "";
+            (data.sections || []).forEach((s, idx) => {
+                const item = document.createElement("div");
+                item.className = `section-item ${idx === 0 ? 'active' : ''}`;
+                item.id = `sec-nav-${s.id}`;
+                item.onclick = (e) => {
+                    if (!e.target.closest('.section-audio-btn')) {
+                        scrollToSection(s.id);
+                    }
+                };
+                item.innerHTML = `
+                    <div class="section-name" title="${s.title}">${s.title}</div>
+                    <button class="section-audio-btn" title="Listen to this section" onclick="playSingleSection('${s.id}')">
+                        <i class="fas fa-play"></i>
+                    </button>
+                `;
+                secContainer.appendChild(item);
+            });
+
+            // Render Equations in Left Column
+            renderEquationsList(data.equations || []);
+
+            // Render Main Reader Article Content
+            renderArticleHtml(data);
         }
-    } catch (e) { 
-        bot.innerHTML = '<i class="fas fa-exclamation-circle"></i> Error contacting server.'; 
-    } finally {
-        isProcessing = false;
-    }
-}
 
-// ==========================
-// EVENT LISTENERS
-// ==========================
-input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { 
-        e.preventDefault(); 
-        if (!isProcessing) ask(); 
-    }
-});
+        function renderArticleHtml(data) {
+            const viewport = document.getElementById("paperArticleContent");
+            viewport.innerHTML = `<h1>${data.title}</h1>`;
 
-input.addEventListener("input", function() {
-    this.style.height = "auto";
-    this.style.height = Math.min(this.scrollHeight, 140) + "px";
-});
+            (data.sections || []).forEach(sec => {
+                const secDiv = document.createElement("section");
+                secDiv.id = `section-block-${sec.id}`;
+                
+                let contentHtml = "";
+                // Split paragraphs
+                const paragraphs = sec.content.split(/\n\s*\n/);
+                paragraphs.forEach(p => {
+                    if (p.trim()) {
+                        // Check if paragraph is an equation block
+                        if (p.includes("=") && p.length < 120 && (p.includes("+") || p.includes("-") || p.includes("\\") || p.includes("("))) {
+                            contentHtml += `<div class="formula-card">${p.trim()} <button class="tool-btn" style="font-size:11px;" onclick="deconstructEquationText('${encodeURIComponent(p.trim())}')">Explain</button></div>`;
+                        } else {
+                            // Wrap sentences in spans for real-time audio highlight tracking
+                            const sentences = p.match(/[^.!?]+[.!?]+(\s|$)/g) || [p];
+                            const sentenceSpans = sentences.map((s, sIdx) => `<span class="reader-sentence" id="sent-${sec.id}-${sIdx}">${s}</span>`).join("");
+                            contentHtml += `<p>${sentenceSpans}</p>`;
+                        }
+                    }
+                });
 
-// File input change handler - show filename
-document.getElementById("file").addEventListener("change", function() {
-    if (this.files.length > 0) {
-        const fileName = this.files[0].name;
-        showUploadStatus(`📄 Selected: ${fileName}`, '');
-    } else {
-        uploadStatus.className = 'upload-status';
-    }
-});
+                secDiv.innerHTML = `
+                    <h2>
+                        <span>${sec.title}</span>
+                        <button class="tool-btn" style="font-size:11px;" onclick="playSingleSection('${sec.id}')"><i class="fas fa-volume-high"></i> Listen (${sec.est_minutes}m)</button>
+                    </h2>
+                    ${contentHtml}
+                `;
+                viewport.appendChild(secDiv);
+            });
 
-// ==========================
-// INITIALIZE
-// ==========================
-checkAuth();
+            // Trigger KaTeX rendering on the generated article
+            if (window.renderMathInElement) {
+                renderMathInElement(viewport, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
 
-console.log("✅ App initialized with enhanced greeting support");
-</script>
+        function scrollToSection(secId) {
+            document.querySelectorAll(".section-item").forEach(el => el.classList.remove("active"));
+            const navEl = document.getElementById(`sec-nav-${secId}`);
+            if (navEl) navEl.classList.add("active");
+
+            const block = document.getElementById(`section-block-${secId}`);
+            if (block) {
+                block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // =========================================================
+        // READER TOOLBAR CONTROLS
+        // =========================================================
+        function switchReaderMode(mode) {
+            readerMode = mode;
+            document.getElementById("btnModeArticle").classList.toggle("active", mode === 'article');
+            document.getElementById("btnModePdf").classList.toggle("active", mode === 'pdf');
+            document.getElementById("readerViewport").style.display = mode === 'article' ? 'block' : 'none';
+            document.getElementById("pdfFrameContainer").style.display = mode === 'pdf' ? 'block' : 'none';
+        }
+
+        function adjustFontSize(delta) {
+            readerFontSize = Math.max(13, Math.min(26, readerFontSize + delta));
+            document.getElementById("paperArticleContent").style.fontSize = `${readerFontSize}px`;
+        }
+
+        function toggleColumns() {
+            isTwoColumn = !isTwoColumn;
+            const article = document.getElementById("paperArticleContent");
+            if (isTwoColumn) {
+                article.style.columnCount = "2";
+                article.style.columnGap = "36px";
+                document.getElementById("btnColumnToggle").classList.add("active");
+            } else {
+                article.style.columnCount = "1";
+                document.getElementById("btnColumnToggle").classList.remove("active");
+            }
+        }
+
+        function searchPaperText() {
+            const query = document.getElementById("paperSearchInput").value.toLowerCase();
+            const sentences = document.querySelectorAll(".reader-sentence");
+            sentences.forEach(s => {
+                if (query && s.textContent.toLowerCase().includes(query)) {
+                    s.style.backgroundColor = "rgba(59, 130, 246, 0.4)";
+                } else {
+                    s.style.backgroundColor = "";
+                }
+            });
+        }
+
+        // =========================================================
+        // TTS AUDIO NARRATION ENGINE
+        // =========================================================
+        function loadVoices() {
+            availableVoices = ttsSynth.getVoices();
+            const select = document.getElementById("audioVoiceSelect");
+            select.innerHTML = "";
+            availableVoices.filter(v => v.lang.includes("en")).forEach((v, idx) => {
+                const opt = document.createElement("option");
+                opt.value = idx;
+                opt.textContent = `${v.name} (${v.lang})`;
+                select.appendChild(opt);
+            });
+        }
+
+        function playSingleSection(secId) {
+            if (!currentPaper || !currentPaper.sections) return;
+            const sec = currentPaper.sections.find(s => s.id === secId);
+            if (!sec) return;
+
+            stopMasterAudio();
+            activeAudioSource = 'section';
+            document.getElementById("audioTrackTitle").textContent = sec.title;
+            document.getElementById("audioTrackSub").textContent = `Narrating Section (~${sec.est_minutes} min)`;
+
+            const sentences = sec.content.match(/[^.!?]+[.!?]+(\s|$)/g) || [sec.content];
+            audioQueue = sentences.map((s, idx) => ({
+                text: s.trim(),
+                elementId: `sent-${sec.id}-${idx}`,
+                secId: sec.id
+            }));
+            audioIndex = 0;
+            startAudioPlayback();
+        }
+
+        function playCurrentArticle() {
+            if (!currentPaper || !currentPaper.sections) return;
+            stopMasterAudio();
+            activeAudioSource = 'article';
+            document.getElementById("audioTrackTitle").textContent = currentPaper.title;
+            document.getElementById("audioTrackSub").textContent = "Full Paper Narration";
+
+            audioQueue = [];
+            currentPaper.sections.forEach(sec => {
+                const sentences = sec.content.match(/[^.!?]+[.!?]+(\s|$)/g) || [sec.content];
+                sentences.forEach((s, idx) => {
+                    audioQueue.push({
+                        text: s.trim(),
+                        elementId: `sent-${sec.id}-${idx}`,
+                        secId: sec.id
+                    });
+                });
+            });
+            audioIndex = 0;
+            startAudioPlayback();
+        }
+
+        function startAudioPlayback() {
+            if (audioIndex >= audioQueue.length) {
+                stopMasterAudio();
+                return;
+            }
+
+            const item = audioQueue[audioIndex];
+            currentUtterance = new SpeechSynthesisUtterance(item.text);
+
+            // Configure voice & speed
+            const voiceIdx = document.getElementById("audioVoiceSelect").value;
+            if (availableVoices[voiceIdx]) currentUtterance.voice = availableVoices[voiceIdx];
+            currentUtterance.rate = parseFloat(document.getElementById("audioSpeedSelect").value) || 1.0;
+
+            // Real-time Visual Sentence Highlighting
+            currentUtterance.onstart = () => {
+                isAudioPlaying = true;
+                isAudioPaused = false;
+                updateAudioPlayerUI();
+                highlightSentence(item.elementId);
+                if (item.secId) scrollToSection(item.secId);
+            };
+
+            currentUtterance.onend = () => {
+                removeHighlight(item.elementId);
+                audioIndex++;
+                updateAudioProgress();
+                startAudioPlayback();
+            };
+
+            currentUtterance.onerror = (e) => {
+                console.error("TTS Error:", e);
+                removeHighlight(item.elementId);
+                audioIndex++;
+                startAudioPlayback();
+            };
+
+            ttsSynth.speak(currentUtterance);
+        }
+
+        function toggleMasterAudio() {
+            if (!isAudioPlaying && audioQueue.length === 0) {
+                playCurrentArticle();
+                return;
+            }
+
+            if (isAudioPlaying && !isAudioPaused) {
+                ttsSynth.pause();
+                isAudioPaused = true;
+                updateAudioPlayerUI();
+            } else if (isAudioPaused) {
+                ttsSynth.resume();
+                isAudioPaused = false;
+                updateAudioPlayerUI();
+            }
+        }
+
+        function stopMasterAudio() {
+            ttsSynth.cancel();
+            isAudioPlaying = false;
+            isAudioPaused = false;
+            document.querySelectorAll(".active-reading-sentence").forEach(el => el.classList.remove("active-reading-sentence"));
+            updateAudioPlayerUI();
+            document.getElementById("audioProgressFill").style.width = "0%";
+        }
+
+        function skipAudio(seconds) {
+            const skipCount = Math.round(seconds / 3.5);
+            audioIndex = Math.max(0, Math.min(audioQueue.length - 1, audioIndex + skipCount));
+            ttsSynth.cancel();
+            startAudioPlayback();
+        }
+
+        function seekAudio(e) {
+            const bar = document.getElementById("audioProgressBar");
+            const rect = bar.getBoundingClientRect();
+            const ratio = (e.clientX - rect.left) / rect.width;
+            audioIndex = Math.floor(ratio * audioQueue.length);
+            ttsSynth.cancel();
+            startAudioPlayback();
+        }
+
+        function changeAudioSpeed() {
+            if (isAudioPlaying) {
+                ttsSynth.cancel();
+                startAudioPlayback();
+            }
+        }
+
+        function changeVoice() {
+            if (isAudioPlaying) {
+                ttsSynth.cancel();
+                startAudioPlayback();
+            }
+        }
+
+        function updateAudioPlayerUI() {
+            const icon = document.getElementById("masterPlayIcon");
+            const pulse = document.getElementById("audioPulse");
+            if (isAudioPlaying && !isAudioPaused) {
+                icon.className = "fas fa-pause";
+                pulse.style.animation = "pulse 1.5s infinite";
+            } else {
+                icon.className = "fas fa-play";
+                pulse.style.animation = "none";
+            }
+        }
+
+        function updateAudioProgress() {
+            if (!audioQueue.length) return;
+            const pct = Math.round((audioIndex / audioQueue.length) * 100);
+            document.getElementById("audioProgressFill").style.width = `${pct}%`;
+            document.getElementById("audioTimeElapsed").textContent = `${Math.floor(audioIndex*3.5/60)}:${String(Math.floor((audioIndex*3.5)%60)).padStart(2, '0')}`;
+            document.getElementById("audioTimeTotal").textContent = `${Math.floor(audioQueue.length*3.5/60)}:${String(Math.floor((audioQueue.length*3.5)%60)).padStart(2, '0')}`;
+        }
+
+        function highlightSentence(id) {
+            document.querySelectorAll(".active-reading-sentence").forEach(el => el.classList.remove("active-reading-sentence"));
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.add("active-reading-sentence");
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function removeHighlight(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove("active-reading-sentence");
+        }
+
+        // =========================================================
+        // AI PODCAST STUDIO (NotebookLM Style)
+        // =========================================================
+        async function triggerPodcastGeneration() {
+            switchStudioTab('podcast');
+            const btn = document.getElementById("btnGenPodcast");
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Synthesizing 2-Host Dialogue...`;
+
+            try {
+                const res = await fetch("/api/paper/podcast_script", { method: "POST" });
+                const data = await res.json();
+                if (data.error) {
+                    showToast("❌ " + data.error);
+                } else {
+                    podcastScript = data.script || [];
+                    renderPodcastDialogue(podcastScript);
+                    showToast("🎙️ Podcast episode generated!");
+                    playPodcastDialogue(0);
+                }
+            } catch(e) {
+                showToast("❌ Failed to generate podcast: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Re-generate Episode`;
+            }
+        }
+
+        function renderPodcastDialogue(script) {
+            const feed = document.getElementById("podcastDialogueFeed");
+            feed.innerHTML = "";
+
+            script.forEach((turn, idx) => {
+                const isAlex = turn.speaker.toLowerCase().includes("alex");
+                const card = document.createElement("div");
+                card.className = `podcast-turn ${isAlex ? 'speaker-alex' : 'speaker-sam'}`;
+                card.id = `podcast-turn-${idx}`;
+                card.innerHTML = `
+                    <div class="speaker-avatar ${isAlex ? 'alex' : 'sam'}">${isAlex ? 'A' : 'Dr'}</div>
+                    <div class="turn-content">
+                        <div class="turn-header">
+                            <span class="turn-name">${turn.speaker}</span>
+                            <button class="section-audio-btn" style="width:22px; height:22px; font-size:10px;" onclick="playPodcastDialogue(${idx})"><i class="fas fa-play"></i></button>
+                        </div>
+                        <div class="turn-text">${turn.text}</div>
+                    </div>
+                `;
+                feed.appendChild(card);
+            });
+        }
+
+        function playPodcastDialogue(startIdx = 0) {
+            if (!podcastScript.length) return;
+            stopMasterAudio();
+            activeAudioSource = 'podcast';
+            document.getElementById("audioTrackTitle").textContent = "AI Research Podcast";
+            document.getElementById("audioTrackSub").textContent = "Alex (Host) & Dr. Sam (Scientist)";
+
+            audioQueue = podcastScript.slice(startIdx).map((t, idx) => ({
+                text: t.text,
+                speaker: t.speaker,
+                turnIdx: startIdx + idx
+            }));
+            audioIndex = 0;
+            startPodcastPlayback();
+        }
+
+        function startPodcastPlayback() {
+            if (audioIndex >= audioQueue.length) {
+                stopMasterAudio();
+                return;
+            }
+
+            const item = audioQueue[audioIndex];
+            currentUtterance = new SpeechSynthesisUtterance(item.text);
+
+            const isAlex = item.speaker.toLowerCase().includes("alex");
+            if (availableVoices.length > 1) {
+                currentUtterance.voice = isAlex ? availableVoices[0] : availableVoices[Math.min(1, availableVoices.length - 1)];
+            }
+            currentUtterance.pitch = isAlex ? 1.15 : 0.9;
+            currentUtterance.rate = parseFloat(document.getElementById("audioSpeedSelect").value) || (isAlex ? 1.05 : 0.98);
+
+            currentUtterance.onstart = () => {
+                isAudioPlaying = true;
+                isAudioPaused = false;
+                updateAudioPlayerUI();
+                
+                document.querySelectorAll(".podcast-turn").forEach(t => t.classList.remove("active-turn"));
+                const turnCard = document.getElementById(`podcast-turn-${item.turnIdx}`);
+                if (turnCard) {
+                    turnCard.classList.add("active-turn");
+                    turnCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            };
+
+            currentUtterance.onend = () => {
+                audioIndex++;
+                updateAudioProgress();
+                startPodcastPlayback();
+            };
+
+            ttsSynth.speak(currentUtterance);
+        }
+
+        // =========================================================
+        // SCHOLAR Q&A (RAG)
+        // =========================================================
+        function onScholarEnter(e) {
+            if (e.key === "Enter") sendScholarQuery();
+        }
+
+        function quickAsk(prompt) {
+            switchStudioTab('chat');
+            document.getElementById("scholarInputText").value = prompt;
+            sendScholarQuery();
+        }
+
+        async function sendScholarQuery() {
+            const input = document.getElementById("scholarInputText");
+            const q = input.value.trim();
+            if (!q) return;
+            input.value = "";
+
+            appendUserMessage(q);
+            const scholarMsg = appendScholarMessage('<i class="fas fa-spinner fa-spin"></i> Formulating academic explanation...', 'AI Scholar');
+
+            try {
+                const res = await fetch("/ask", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ question: q }),
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                scholarMsg.innerHTML = formatMarkdown(data.answer || "No response");
+                
+                if (window.renderMathInElement) {
+                    renderMathInElement(scholarMsg, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+            } catch(e) {
+                scholarMsg.innerHTML = `⚠️ Error: ${e.message}`;
+            }
+        }
+
+        function appendUserMessage(text) {
+            const feed = document.getElementById("scholarChatFeed");
+            const div = document.createElement("div");
+            div.className = "chat-bubble user";
+            div.textContent = text;
+            feed.appendChild(div);
+            feed.scrollTop = feed.scrollHeight;
+            return div;
+        }
+
+        function appendScholarMessage(text, title = "") {
+            const feed = document.getElementById("scholarChatFeed");
+            const div = document.createElement("div");
+            div.className = "chat-bubble scholar";
+            div.innerHTML = `${title ? `<div style="font-size:11px; font-weight:700; color:var(--accent-cyan); margin-bottom:4px;">${title}</div>` : ''}${formatMarkdown(text)}`;
+            feed.appendChild(div);
+            feed.scrollTop = feed.scrollHeight;
+            return div;
+        }
+
+        async function triggerCritique() {
+            switchStudioTab('chat');
+            appendUserMessage("Conduct a full peer-review level critical appraisal.");
+            const bubble = appendScholarMessage('<i class="fas fa-spinner fa-spin"></i> Performing deep methodological audit...', 'Peer Review Critique');
+            try {
+                const res = await fetch("/api/paper/critique", { method: "POST" });
+                const data = await res.json();
+                bubble.innerHTML = formatMarkdown(data.critique || data.error);
+                if (window.renderMathInElement) renderMathInElement(bubble, { delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}] });
+            } catch(e) {
+                bubble.innerHTML = `⚠️ Error: ${e.message}`;
+            }
+        }
+
+        // =========================================================
+        // EQUATION DECONSTRUCTOR
+        // =========================================================
+        function deconstructEquationText(encodedEq) {
+            const eq = decodeURIComponent(encodedEq);
+            switchStudioTab('math');
+            document.getElementById("customEquationInput").value = eq;
+            explainCustomEquation();
+        }
+
+        async function explainCustomEquation() {
+            const eq = document.getElementById("customEquationInput").value.trim();
+            if (!eq) return;
+            const resBox = document.getElementById("equationExplResult");
+            resBox.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Deconstructing variables and physical intuition...`;
+
+            try {
+                const res = await fetch("/api/paper/explain_equation", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ equation: eq })
+                });
+                const data = await res.json();
+                resBox.innerHTML = formatMarkdown(data.explanation || data.error);
+                if (window.renderMathInElement) {
+                    renderMathInElement(resBox, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                }
+            } catch(e) {
+                resBox.innerHTML = `⚠️ Failed to analyze equation: ${e.message}`;
+            }
+        }
+
+        // =========================================================
+        // NOTES & BULLET POINTS MANAGEMENT
+        // =========================================================
+        let currentNotes = [];
+
+        async function loadNotes() {
+            try {
+                const res = await fetch("/api/notes/get", { credentials: "same-origin" });
+                const data = await res.json();
+                currentNotes = data.notes || [];
+                renderNotesList(currentNotes);
+            } catch(e) {
+                console.error("Error loading notes:", e);
+            }
+        }
+
+        function renderNotesList(notes) {
+            const container = document.getElementById("savedNotesList");
+            if (!container) return;
+
+            if (!notes || notes.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:24px 10px; color:var(--text-muted); font-size:12px;">
+                        <i class="fas fa-pen-to-square" style="font-size:24px; margin-bottom:8px; opacity:0.4;"></i>
+                        <p>No study notes added yet.<br>Type above or click <strong>Auto-Extract</strong> to grab points.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = "";
+            notes.forEach(note => {
+                const card = document.createElement("div");
+                card.className = "note-card";
+                card.id = `note-${note.id}`;
+
+                let badgeClass = "tag-general";
+                const tagLower = (note.tag || "").toLowerCase();
+                if (tagLower.includes("novel")) badgeClass = "tag-novelty";
+                else if (tagLower.includes("method")) badgeClass = "tag-methodology";
+                else if (tagLower.includes("bench")) badgeClass = "tag-benchmark";
+                else if (tagLower.includes("limit")) badgeClass = "tag-limitation";
+                else if (tagLower.includes("find")) badgeClass = "tag-finding";
+                else if (tagLower.includes("form")) badgeClass = "tag-formula";
+
+                card.innerHTML = `
+                    <div class="note-card-header">
+                        <span class="note-badge ${badgeClass}">${note.tag || 'Key Point'}</span>
+                        <div class="note-card-actions">
+                            <button class="note-card-action-btn" title="Copy note" onclick="copyNoteText('${encodeURIComponent(note.text)}')"><i class="fas fa-copy"></i></button>
+                            <button class="note-card-action-btn del" title="Delete note" onclick="deleteNote('${note.id}')"><i class="fas fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                    <div class="note-card-body">${formatMarkdown(note.text)}</div>
+                    <div class="note-card-footer">
+                        <span><i class="fas fa-bookmark" style="font-size:9px;"></i> ${note.section || 'General'}</span>
+                        <span>${note.timestamp || ''}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function submitAddNote() {
+            const input = document.getElementById("noteTextInput");
+            const text = input.value.trim();
+            const tag = document.getElementById("noteTagSelect").value;
+
+            if (!text) {
+                showToast("Please enter note content");
+                input.focus();
+                return;
+            }
+
+            try {
+                const res = await fetch("/api/notes/add", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        text: text,
+                        tag: tag,
+                        section: currentPaper ? (currentPaper.title ? currentPaper.title.substring(0, 30) + '...' : 'Paper') : 'Study Notes'
+                    }),
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.success) {
+                    input.value = "";
+                    loadNotes();
+                    showToast("✅ Note added!");
+                } else {
+                    showToast("❌ " + (data.error || "Failed to save note"));
+                }
+            } catch(e) {
+                showToast("❌ Failed to save note: " + e.message);
+            }
+        }
+
+        function handleNoteKey(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                e.preventDefault();
+                submitAddNote();
+            }
+        }
+
+        async function deleteNote(noteId) {
+            try {
+                const res = await fetch(`/api/notes/delete/${noteId}`, {
+                    method: "DELETE",
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadNotes();
+                    showToast("Note deleted");
+                }
+            } catch(e) {
+                console.error("Delete note error:", e);
+            }
+        }
+
+        async function clearAllNotes() {
+            if (!confirm("Are you sure you want to clear all notes for this paper?")) return;
+            try {
+                const res = await fetch("/api/notes/clear", {
+                    method: "POST",
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadNotes();
+                    showToast("Notes cleared");
+                }
+            } catch(e) {
+                console.error("Clear notes error:", e);
+            }
+        }
+
+        async function autoExtractTakeaways() {
+            const btn = document.getElementById("btnAutoExtractNotes");
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Extracting...`;
+
+            try {
+                const res = await fetch("/api/notes/auto_extract", {
+                    method: "POST",
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.error) {
+                    showToast("❌ " + data.error);
+                } else {
+                    showToast(`✅ Extracted ${data.added || 'key'} high-yield study points!`);
+                    loadNotes();
+                }
+            } catch(e) {
+                showToast("❌ Auto extraction failed: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Auto-Extract`;
+            }
+        }
+
+        function exportNotesAsMarkdown() {
+            if (!currentNotes || currentNotes.length === 0) {
+                showToast("No notes to export");
+                return;
+            }
+
+            const title = currentPaper ? (currentPaper.title || "Research Paper") : "IEEE Research Study";
+            let mdContent = `# Research Notes & Study Summary\n`;
+            mdContent += `**Paper**: ${title}\n`;
+            mdContent += `**Date**: ${new Date().toLocaleDateString()}\n\n`;
+            mdContent += `---\n\n`;
+
+            currentNotes.forEach((n, idx) => {
+                mdContent += `### ${idx + 1}. [${n.tag || 'Point'}] ${n.section || ''}\n`;
+                mdContent += `${n.text}\n\n`;
+                mdContent += `*Recorded on ${n.timestamp || ''}*\n\n`;
+            });
+
+            const blob = new Blob([mdContent], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `research_notes_${Date.now()}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("📥 Notes exported as Markdown!");
+        }
+
+        function copyNoteText(encodedText) {
+            const text = decodeURIComponent(encodedText);
+            navigator.clipboard.writeText(text);
+            showToast("Copied note to clipboard!");
+        }
+
+        // =========================================================
+        // EQUATIONS STUDIO MANAGEMENT
+        // =========================================================
+        let currentEquations = [];
+
+        async function loadEquations() {
+            try {
+                const res = await fetch("/api/paper/equations", { credentials: "same-origin" });
+                const data = await res.json();
+                currentEquations = data.equations || [];
+                renderEquationsList(currentEquations);
+            } catch(e) {
+                console.error("Error loading equations:", e);
+            }
+        }
+
+        function renderEquationsList(eqs) {
+            currentEquations = eqs || [];
+            const container = document.getElementById("savedEquationsList");
+            if (!container) return;
+
+            if (!currentEquations || currentEquations.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:24px 10px; color:var(--text-muted); font-size:12px;">
+                        <i class="fas fa-calculator" style="font-size:24px; margin-bottom:8px; opacity:0.4;"></i>
+                        <p>No formulas found in paper.<br>Click <strong>Auto-Extract All</strong> or add a formula above.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = "";
+            currentEquations.forEach((eqItem, idx) => {
+                const card = document.createElement("div");
+                card.className = "equation-card";
+                
+                let eqId = `eq_${idx}`;
+                let eqName = `Formula #${idx + 1}`;
+                let eqExpr = "";
+                let eqDesc = "";
+
+                if (typeof eqItem === "string") {
+                    eqExpr = eqItem;
+                    eqId = `eq_str_${idx}`;
+                } else if (typeof eqItem === "object" && eqItem !== null) {
+                    eqId = eqItem.id || `eq_${idx}`;
+                    eqName = eqItem.name || `Formula #${idx + 1}`;
+                    eqExpr = eqItem.latex || eqItem.equation || "";
+                    eqDesc = eqItem.description || "";
+                }
+
+                card.id = `eq-card-${eqId}`;
+                const rawExpr = eqExpr.replace(/^\$\$|\$\$$/g, '').replace(/^\$|\$$/g, '').trim();
+
+                card.innerHTML = `
+                    <div class="equation-card-header">
+                        <span class="equation-card-title"><i class="fas fa-square-root-variable" style="font-size:11px;"></i> ${eqName}</span>
+                        <div class="note-card-actions">
+                            <button class="note-card-action-btn" title="Copy LaTeX" onclick="copyEquationLatex('${encodeURIComponent(rawExpr)}')"><i class="fas fa-copy"></i></button>
+                            <button class="note-card-action-btn" title="Save to Notes" onclick="saveFormulaToNotes('${encodeURIComponent(rawExpr)}', '${encodeURIComponent(eqName)}')"><i class="fas fa-bookmark"></i></button>
+                            <button class="note-card-action-btn del" title="Delete Formula" onclick="deleteEquation('${eqId}')"><i class="fas fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                    <div class="equation-math-render" id="math-render-${eqId}">$$${rawExpr}$$</div>
+                    ${eqDesc ? `<div class="equation-card-desc">${eqDesc}</div>` : ''}
+                    <div class="equation-card-footer">
+                        <button class="tool-btn" style="font-size:11px; padding:3px 8px;" onclick="inspectEquationInStudio('${encodeURIComponent(rawExpr)}')">
+                            <i class="fas fa-magnifying-glass"></i> Deconstruct & Explain
+                        </button>
+                        <span>${eqItem.timestamp || ''}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Re-render KaTeX on all formula cards
+            if (window.renderMathInElement) {
+                renderMathInElement(container, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+
+        async function submitAddEquation() {
+            const exprInput = document.getElementById("equationExpressionInput");
+            const nameInput = document.getElementById("equationNameInput");
+            const expr = exprInput.value.trim();
+            const name = nameInput.value.trim();
+
+            if (!expr) {
+                showToast("Please enter an equation or LaTeX expression");
+                exprInput.focus();
+                return;
+            }
+
+            try {
+                const res = await fetch("/api/paper/add_equation", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        equation: expr,
+                        name: name || "Custom Formula"
+                    }),
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.success) {
+                    exprInput.value = "";
+                    nameInput.value = "";
+                    loadEquations();
+                    showToast("✅ Equation added!");
+                } else {
+                    showToast("❌ " + (data.error || "Failed to add equation"));
+                }
+            } catch(e) {
+                showToast("❌ Add equation failed: " + e.message);
+            }
+        }
+
+        function handleEquationKey(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                e.preventDefault();
+                submitAddEquation();
+            }
+        }
+
+        async function deleteEquation(eqId) {
+            try {
+                const res = await fetch(`/api/paper/delete_equation/${eqId}`, {
+                    method: "DELETE",
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadEquations();
+                    showToast("Formula removed");
+                }
+            } catch(e) {
+                console.error("Delete equation error:", e);
+            }
+        }
+
+        async function autoExtractPaperEquations() {
+            const btn = document.getElementById("btnAutoExtractEqs");
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Extracting Math...`;
+
+            try {
+                const res = await fetch("/api/paper/auto_extract_equations", {
+                    method: "POST",
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.error) {
+                    showToast("❌ " + data.error);
+                } else {
+                    showToast(`✅ Extracted ${data.added || 'key'} mathematical formulations into LaTeX!`);
+                    loadEquations();
+                }
+            } catch(e) {
+                showToast("❌ Equation extraction failed: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Auto-Extract All`;
+            }
+        }
+
+        function exportEquationsAsTex() {
+            if (!currentEquations || currentEquations.length === 0) {
+                showToast("No equations to export");
+                return;
+            }
+
+            const title = currentPaper ? (currentPaper.title || "Research Paper") : "IEEE Research Study";
+            let texContent = `% ====================================================\n`;
+            texContent += `% Mathematical Equations & Formulations\n`;
+            texContent += `% Paper: ${title}\n`;
+            texContent += `% Date: ${new Date().toLocaleDateString()}\n`;
+            texContent += `% ====================================================\n\n`;
+
+            currentEquations.forEach((eqItem, idx) => {
+                let eqName = `Formula #${idx + 1}`;
+                let eqExpr = "";
+                let eqDesc = "";
+
+                if (typeof eqItem === "string") {
+                    eqExpr = eqItem;
+                } else if (typeof eqItem === "object" && eqItem !== null) {
+                    eqName = eqItem.name || `Formula #${idx + 1}`;
+                    eqExpr = eqItem.latex || eqItem.equation || "";
+                    eqDesc = eqItem.description || "";
+                }
+
+                const rawExpr = eqExpr.replace(/^\$\$|\$\$$/g, '').replace(/^\$|\$$/g, '').trim();
+                texContent += `% --- ${eqName} ---\n`;
+                if (eqDesc) texContent += `% Description: ${eqDesc}\n`;
+                texContent += `\\begin{equation}\n  ${rawExpr}\n\\end{equation}\n\n`;
+            });
+
+            const blob = new Blob([texContent], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `equations_${Date.now()}.tex`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("📥 Equations exported as LaTeX (.tex)!");
+        }
+
+        function copyEquationLatex(encodedExpr) {
+            const expr = decodeURIComponent(encodedExpr);
+            navigator.clipboard.writeText(`$$${expr}$$`);
+            showToast("Copied LaTeX to clipboard!");
+        }
+
+        async function saveFormulaToNotes(encodedExpr, encodedName) {
+            const expr = decodeURIComponent(encodedExpr);
+            const name = decodeURIComponent(encodedName);
+            try {
+                const res = await fetch("/api/notes/add", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        text: `**${name}**:\n$$${expr}$$`,
+                        tag: "Formula",
+                        section: "Equations"
+                    }),
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("✅ Formula saved to Notes!");
+                }
+            } catch(e) {
+                showToast("Failed to save formula to notes");
+            }
+        }
+
+        function inspectEquationInStudio(encodedExpr) {
+            const expr = decodeURIComponent(encodedExpr);
+            switchStudioTab('math');
+            document.getElementById("customEquationInput").value = expr;
+            explainCustomEquation();
+        }
+
+        // =========================================================
+        // TAB SWITCHING UTILITIES
+        // =========================================================
+        function switchLeftTab(tab) {
+            document.getElementById("tabNavSections").classList.toggle("active", tab === 'sections');
+            document.getElementById("tabNavEquations").classList.toggle("active", tab === 'equations');
+            document.getElementById("tabNavNotes").classList.toggle("active", tab === 'notes');
+
+            document.getElementById("leftSectionsContainer").style.display = tab === 'sections' ? 'block' : 'none';
+            document.getElementById("leftEquationsContainer").style.display = tab === 'equations' ? 'block' : 'none';
+            document.getElementById("leftNotesContainer").style.display = tab === 'notes' ? 'block' : 'none';
+
+            if (tab === 'notes') {
+                loadNotes();
+            } else if (tab === 'equations') {
+                loadEquations();
+            }
+        }
+
+        function switchStudioTab(tab) {
+            document.getElementById("tabStudioPodcast").classList.toggle("active", tab === 'podcast');
+            document.getElementById("tabStudioChat").classList.toggle("active", tab === 'chat');
+            document.getElementById("tabStudioMath").classList.toggle("active", tab === 'math');
+
+            document.getElementById("panelStudioPodcast").classList.toggle("active", tab === 'podcast');
+            document.getElementById("panelStudioChat").classList.toggle("active", tab === 'chat');
+            document.getElementById("panelStudioMath").classList.toggle("active", tab === 'math');
+        }
+
+        function formatMarkdown(text) {
+            if (!text) return "";
+            if (window.marked) return marked.parse(text);
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function logout() {
+            fetch("/logout", { method: "POST" }).then(() => {
+                window.location.href = "/login-page";
+            });
+        }
+
+        bootstrap();
+    </script>
 </body>
 </html>
