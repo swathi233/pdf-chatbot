@@ -10,6 +10,8 @@ import time
 import fitz  # PyMuPDF
 import hashlib
 import re
+import math
+from collections import Counter
 import requests
 from datetime import datetime
 import json
@@ -497,8 +499,81 @@ def extract_ieee_pdf(file_path):
     }
 
 # ==========================
-# RAG DATABASE & STORAGE
+# RAG DATABASE & RETRIEVAL ENGINE
 # ==========================
+class SimpleTfidfRetriever:
+    """Pure-Python TF-IDF index for environments without scikit-learn."""
+    def __init__(self, docs):
+        self.docs = docs
+        self.doc_tokens = [self._tokenize(d) for d in docs]
+        self.df = Counter()
+        for dt in self.doc_tokens:
+            self.df.update(set(dt))
+        self.N = len(docs)
+        self.idf = {term: math.log((self.N + 1) / (count + 1)) + 1.0 for term, count in self.df.items()}
+
+    def _tokenize(self, text):
+        return re.findall(r'\b[a-zA-Z0-9_]{2,}\b', text.lower())
+
+    def get_top_k(self, query, k=5):
+        q_tokens = self._tokenize(query)
+        if not q_tokens:
+            return list(range(min(k, len(self.docs))))
+        scores = []
+        for i, dt in enumerate(self.doc_tokens):
+            if not dt:
+                scores.append((0.0, i))
+                continue
+            tf = Counter(dt)
+            doc_len = len(dt)
+            score = 0.0
+            for qt in q_tokens:
+                if qt in tf:
+                    term_score = (tf[qt] / doc_len) * self.idf.get(qt, 1.0)
+                    score += term_score
+            scores.append((score, i))
+        scores.sort(key=lambda x: x[0], reverse=True)
+        return [idx for _, idx in scores[:k]]
+
+def split_text_smart(text, chunk_size=750, chunk_overlap=120):
+    """Splits text using LangChain if available, otherwise using pure Python recursive chunker."""
+    if not text:
+        return []
+    if LANGCHAIN_AVAILABLE:
+        try:
+            splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+            return [c for c in splitter.split_text(text) if len(c.strip()) > 50][:120]
+        except Exception as e:
+            logger.warning(f"LangChain splitter error: {e}. Using pure-Python splitter fallback.")
+    
+    # Pure Python chunker
+    paragraphs = text.split("\n\n")
+    chunks = []
+    current_chunk = ""
+    for p in paragraphs:
+        p_clean = p.strip()
+        if not p_clean:
+            continue
+        if len(current_chunk) + len(p_clean) < chunk_size:
+            current_chunk = (current_chunk + "\n\n" + p_clean).strip()
+        else:
+            if current_chunk:
+                chunks.append(current_chunk)
+            if len(p_clean) > chunk_size:
+                start = 0
+                while start < len(p_clean):
+                    end = min(start + chunk_size, len(p_clean))
+                    chunks.append(p_clean[start:end])
+                    if end == len(p_clean):
+                        break
+                    start += (chunk_size - chunk_overlap)
+                current_chunk = ""
+            else:
+                current_chunk = p_clean
+    if current_chunk:
+        chunks.append(current_chunk)
+    return [c for c in chunks if len(c.strip()) > 50][:120]
+
 user_data = {}
 
 def get_user_data():
@@ -509,6 +584,7 @@ def get_user_data():
         user_data[user_id] = {
             "vectorizer": None,
             "matrix": None,
+            "fallback_retriever": None,
             "stored_chunks": [],
             "source_name": None,
             "source_type": None,
@@ -519,20 +595,51 @@ def get_user_data():
     return user_data[user_id]
 
 def build_db(text, user_data_obj):
-    if not LANGCHAIN_AVAILABLE or not SKLEARN_AVAILABLE:
-        raise Exception("Required libraries (LangChain/scikit-learn) not available.")
-    
-    splitter = RecursiveCharacterTextSplitter(chunk_size=750, chunk_overlap=120)
-    chunks = splitter.split_text(text)
-    chunks = [c for c in chunks if len(c.strip()) > 60][:120]
+    chunks = split_text_smart(text)
     if not chunks:
-        raise Exception("No readable text found in paper.")
+        if text.strip():
+            chunks = [text.strip()]
+        else:
+            raise Exception("No readable text found in paper.")
+            
     user_data_obj["stored_chunks"] = chunks
-    vectorizer = TfidfVectorizer()
-    matrix = vectorizer.fit_transform(chunks)
-    user_data_obj["vectorizer"] = vectorizer
-    user_data_obj["matrix"] = matrix
+    user_data_obj["fallback_retriever"] = SimpleTfidfRetriever(chunks)
+    
+    if SKLEARN_AVAILABLE:
+        try:
+            vectorizer = TfidfVectorizer()
+            matrix = vectorizer.fit_transform(chunks)
+            user_data_obj["vectorizer"] = vectorizer
+            user_data_obj["matrix"] = matrix
+        except Exception as e:
+            logger.warning(f"scikit-learn indexing fallback: {e}")
+            user_data_obj["vectorizer"] = None
+            user_data_obj["matrix"] = None
+
     return len(chunks)
+
+def get_relevant_chunks(question, user_data_obj, top_k=5):
+    """Retrieve top relevant chunks using sklearn or built-in TF-IDF fallback."""
+    chunks = user_data_obj.get("stored_chunks", [])
+    if not chunks:
+        return []
+    
+    if SKLEARN_AVAILABLE and user_data_obj.get("vectorizer") is not None and user_data_obj.get("matrix") is not None:
+        try:
+            q_vec = user_data_obj["vectorizer"].transform([question])
+            scores = (user_data_obj["matrix"] @ q_vec.T).toarray().ravel()
+            top_idx = scores.argsort()[-top_k:][::-1]
+            return [chunks[i] for i in top_idx if i < len(chunks)]
+        except Exception as e:
+            logger.warning(f"sklearn retrieval error: {e}. Using fallback retriever.")
+
+    retriever = user_data_obj.get("fallback_retriever")
+    if not retriever:
+        retriever = SimpleTfidfRetriever(chunks)
+        user_data_obj["fallback_retriever"] = retriever
+
+    top_idx = retriever.get_top_k(question, k=top_k)
+    return [chunks[i] for i in top_idx if i < len(chunks)]
 
 def build_scholar_prompt(question, context, paper_title="IEEE Paper"):
     return f"""
@@ -1177,14 +1284,12 @@ def ask():
         return jsonify({"answer": "Please provide a question."})
     
     user_data_obj = get_user_data()
-    if not user_data_obj or user_data_obj.get("vectorizer") is None:
+    if not user_data_obj or not user_data_obj.get("stored_chunks"):
         return jsonify({"answer": "Please upload an IEEE research paper or enter a paper link first."})
         
     try:
-        q_vec = user_data_obj["vectorizer"].transform([question])
-        scores = (user_data_obj["matrix"] @ q_vec.T).toarray().ravel()
-        top_idx = scores.argsort()[-5:][::-1]
-        context = "\n\n".join([user_data_obj["stored_chunks"][i] for i in top_idx])
+        relevant_chunks = get_relevant_chunks(question, user_data_obj, top_k=5)
+        context = "\n\n".join(relevant_chunks)
         
         prompt = build_scholar_prompt(question, context, user_data_obj.get("source_name", "Paper"))
         answer = query_llm(prompt)
