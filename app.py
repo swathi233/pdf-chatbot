@@ -459,36 +459,42 @@ def extract_ieee_pdf(file_path):
         r'\$\$([\s\S]*?)\$\$',
         r'\\begin\{equation\*?\}([\s\S]*?)\\end\{equation\*?\}',
         r'\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}',
-        r'(\b[a-zA-Z0-9_\^\+\-\*/\(\)\{\}\\\s]{2,}\s*=\s*[a-zA-Z0-9_\^\+\-\*/\(\)\\\{\}\s\sum\int\prod\partial\nabla\in\le\ge]{3,}\s*\(\d+\))',
-        r'(\b\w+\s*\(.*?\)\s*=\s*[\w\+\-\*/\(\)\\\{\}\sum\int_^\d\.\s]{4,}\b)',
-        r'(\\mathcal\{[A-Z]\}\s*=\s*[^;\n]{4,})',
-        r'(\b\mathcal\{L\}[_\w]*\s*=\s*[^;\n]{4,})',
-        r'(\b\min_{[^}]+}\s*[^;\n]{4,})',
-        r'(\b\max_{[^}]+}\s*[^;\n]{4,})'
+        r'(\b[a-zA-Z0-9_\^\+\-\*/\(\)\{\}\\\s]{2,}\s*=\s*[a-zA-Z0-9_\^\+\-\*/\(\)\{\}\\\s.,]{3,}\s*\(\d+\))',
+        r'(\b[A-Za-z]\w*\s*\([^)]*\)\s*=\s*[^;\n\r]{4,})',
+        r'(\\[Mm]athcal\{[A-Za-z]\}[_A-Za-z0-9]*\s*=\s*[^;\n\r]{4,})',
+        r'(\b(?:\\min|\\max|\bmin|\bmax)_[^{\s\n\r]+\s*[^;\n\r]{4,})'
     ]
     
     eq_id_counter = 1
     for p in math_patterns:
-        for match in re.finditer(p, full_text):
-            raw_eq = match.group(0).strip()
-            # Clean up newlines within formula
-            clean_eq = re.sub(r'\s+', ' ', raw_eq).strip()
-            if len(clean_eq) > 5 and not any(e["equation"] == clean_eq for e in equations_found) and len(equations_found) < 25:
-                # Detect equation number if present like (1), (2)
-                num_match = re.search(r'\((\d+)\)$', clean_eq)
-                eq_label = f"Equation ({num_match.group(1)})" if num_match else f"Formula #{eq_id_counter}"
-                equations_found.append({
-                    "id": f"eq_{int(time.time()*1000)}_{eq_id_counter}",
-                    "name": eq_label,
-                    "equation": clean_eq,
-                    "latex": clean_eq if clean_eq.startswith("$") else f"$${clean_eq}$$",
-                    "timestamp": datetime.now().strftime("%H:%M")
-                })
-                eq_id_counter += 1
+        try:
+            for match in re.finditer(p, full_text):
+                raw_eq = match.group(0).strip()
+                # Clean up newlines within formula
+                clean_eq = re.sub(r'\s+', ' ', raw_eq).strip()
+                if len(clean_eq) > 5 and not any(e.get("equation") == clean_eq for e in equations_found) and len(equations_found) < 25:
+                    # Detect equation number if present like (1), (2)
+                    num_match = re.search(r'\((\d+)\)$', clean_eq)
+                    eq_label = f"Equation ({num_match.group(1)})" if num_match else f"Formula #{eq_id_counter}"
+                    equations_found.append({
+                        "id": f"eq_{int(time.time()*1000)}_{eq_id_counter}",
+                        "name": eq_label,
+                        "equation": clean_eq,
+                        "latex": clean_eq if clean_eq.startswith("$") else f"$${clean_eq}$$",
+                        "timestamp": datetime.now().strftime("%H:%M")
+                    })
+                    eq_id_counter += 1
+        except Exception as re_err:
+            logger.warning(f"Math pattern regex warning: {re_err}")
 
     # Extract paper title candidate (first non-empty line)
-    title_match = re.search(r'^[^\n]{10,120}', full_text.strip())
-    paper_title = title_match.group(0).strip() if title_match else "IEEE Research Paper"
+    clean_full_text = full_text.strip()
+    non_empty_lines = [line.strip() for line in clean_full_text.splitlines() if line.strip()]
+    paper_title = "IEEE Research Paper"
+    for line in non_empty_lines[:6]:
+        if len(line) >= 8 and not re.match(r'^(Abstract|Index Terms|Keywords|I\.|II\.|III\.|IV\.)', line, re.IGNORECASE):
+            paper_title = line
+            break
 
     return {
         "title": paper_title,
@@ -588,6 +594,7 @@ def get_user_data():
             "stored_chunks": [],
             "source_name": None,
             "source_type": None,
+            "saved_file_path": None,
             "paper_info": None,
             "podcast_script": None,
             "saved_notes": []
@@ -1284,12 +1291,14 @@ def ask():
         return jsonify({"answer": "Please provide a question."})
     
     user_data_obj = get_user_data()
-    if not user_data_obj or not user_data_obj.get("stored_chunks"):
+    if not user_data_obj or user_data_obj.get("vectorizer") is None:
         return jsonify({"answer": "Please upload an IEEE research paper or enter a paper link first."})
         
     try:
-        relevant_chunks = get_relevant_chunks(question, user_data_obj, top_k=5)
-        context = "\n\n".join(relevant_chunks)
+        q_vec = user_data_obj["vectorizer"].transform([question])
+        scores = (user_data_obj["matrix"] @ q_vec.T).toarray().ravel()
+        top_idx = scores.argsort()[-5:][::-1]
+        context = "\n\n".join([user_data_obj["stored_chunks"][i] for i in top_idx])
         
         prompt = build_scholar_prompt(question, context, user_data_obj.get("source_name", "Paper"))
         answer = query_llm(prompt)
