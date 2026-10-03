@@ -158,6 +158,7 @@
             margin-bottom: 6px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
@@ -183,19 +184,20 @@
             background: #090e1a;
             border-bottom: 1px solid var(--border-color);
             padding: 4px;
-            gap: 4px;
+            gap: 3px;
         }
         .left-tab {
             flex: 1;
             background: transparent;
             border: none;
             color: var(--text-secondary);
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 600;
-            padding: 6px 0;
+            padding: 6px 2px;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
+            white-space: nowrap;
         }
         .left-tab.active { background: #1e293b; color: #fff; }
 
@@ -471,6 +473,203 @@
         }
         .note-card-action-btn:hover { color: #fff; }
         .note-card-action-btn.del:hover { color: #f87171; }
+
+        /* HISTORY STUDIO STYLES */
+        .history-card {
+            background: #0d182b;
+            border: 1px solid #1a2f4c;
+            border-radius: 8px;
+            padding: 11px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .history-card:hover { border-color: #2b4b77; background: #11213b; }
+        .history-card.active-paper {
+            border-color: var(--accent-cyan);
+            border-left: 3px solid var(--accent-cyan);
+            background: #0f2442;
+        }
+        .history-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .history-card-title {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #f1f5f9;
+            line-height: 1.35;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            flex: 1;
+        }
+        .history-card-meta {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 10.5px;
+            color: var(--text-secondary);
+        }
+        .history-tag {
+            background: #14233c;
+            border: 1px solid #1e365c;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .history-tag.active-badge {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #10b981;
+            color: #34d399;
+            font-weight: 700;
+        }
+        .history-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 6px;
+            margin-top: 2px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* DRAG AND DROP STYLES */
+        .drop-zone {
+            border: 2px dashed #2a4773;
+            border-radius: 12px;
+            padding: 28px 20px;
+            text-align: center;
+            background: #091322;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.08);
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+        }
+        .drop-zone-icon {
+            font-size: 36px;
+            color: var(--accent-cyan);
+            margin-bottom: 10px;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+        .drop-zone.dragover .drop-zone-icon {
+            transform: scale(1.15) translateY(-3px);
+        }
+        .drop-zone-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #f1f5f9;
+            margin-bottom: 4px;
+        }
+        .drop-zone-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .file-selected-badge {
+            background: #142845;
+            border: 1px solid var(--accent-blue);
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #f1f5f9;
+        }
+
+        /* GLOBAL FULL-PAGE DRAG OVERLAY */
+        .global-drag-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(9, 13, 22, 0.92);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            pointer-events: auto;
+        }
+        .global-drag-overlay.active {
+            display: flex;
+        }
+        .global-drag-card {
+            border: 3px dashed var(--accent-cyan);
+            border-radius: 24px;
+            padding: 60px;
+            text-align: center;
+            background: rgba(17, 30, 51, 0.95);
+            box-shadow: 0 0 50px rgba(6, 182, 212, 0.35);
+            max-width: 540px;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        /* SIDEBAR COMPACT DROP ZONE */
+        .sidebar-dropzone {
+            background: #0a1322;
+            border: 1.5px dashed #223a5e;
+            border-radius: 8px;
+            padding: 8px 10px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 11.5px;
+            color: #93c5fd;
+            font-weight: 600;
+        }
+        .sidebar-dropzone:hover, .sidebar-dropzone.dragover {
+            border-color: var(--accent-cyan);
+            background: #11233f;
+            color: #fff;
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+        }
+
+        /* CHAT HEADER TOOLBAR */
+        .chat-header-bar {
+            padding: 8px 14px;
+            background: #0d172a;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11.5px;
+            color: var(--text-secondary);
+        }
+        .chat-tool-btn {
+            background: transparent;
+            border: 1px solid #1e3354;
+            color: var(--text-secondary);
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .chat-tool-btn:hover { background: #162a4a; color: #fff; border-color: var(--accent-cyan); }
 
         /* COLUMN 2: CENTER PAPER READER */
         .col-center {
@@ -1005,6 +1204,325 @@
             display: none;
             z-index: 2000;
         }
+
+        /* NEW USER ONBOARDING BANNER & QUICK GUIDE */
+        .onboarding-banner {
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(6, 182, 212, 0.12) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin: 0 auto 24px;
+            max-width: 820px;
+            text-align: left;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        .onboarding-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .onboarding-title {
+            font-size: 14.5px;
+            font-weight: 700;
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .onboarding-close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 13px;
+            padding: 4px;
+            transition: color 0.2s;
+        }
+        .onboarding-close-btn:hover { color: #fff; }
+        .onboarding-steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 12px;
+        }
+        .onboarding-step-card {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .onboarding-step-num {
+            background: linear-gradient(135deg, #2563eb, #06b6d4);
+            color: #fff;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .onboarding-step-content {
+            font-size: 11.5px;
+            line-height: 1.4;
+            color: #cbd5e1;
+        }
+        .onboarding-step-content strong {
+            display: block;
+            color: #f8fafc;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        /* FEATURE TOUR MODAL */
+        .help-tip-badge {
+            background: rgba(6, 182, 212, 0.15);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            color: #38bdf8;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .help-tip-badge:hover {
+            background: rgba(6, 182, 212, 0.25);
+            color: #fff;
+        }
+
+        /* =========================================================
+           RESPONSIVE DESIGN (DESKTOP, TABLET, MOBILE)
+           ========================================================= */
+        .mobile-nav-bar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 58px;
+            background: #090e1a;
+            border-top: 1px solid var(--border-color);
+            z-index: 100;
+            justify-content: space-around;
+            align-items: center;
+            padding: 4px 8px;
+        }
+
+        .mobile-nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 6px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mobile-nav-item i {
+            font-size: 16px;
+        }
+
+        .mobile-nav-item.active {
+            color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.12);
+        }
+
+        /* TABLET & SMALL LAPTOP (<= 1024px) */
+        @media (max-width: 1024px) {
+            body {
+                height: 100vh;
+                height: 100dvh;
+            }
+
+            .top-nav {
+                padding: 0 14px;
+                height: 52px;
+            }
+
+            .brand span:not(.brand-badge) {
+                font-size: 15px;
+            }
+
+            .brand-badge {
+                display: none;
+            }
+
+            .nav-actions {
+                gap: 6px;
+            }
+
+            .btn-nav {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            .workspace {
+                height: calc(100vh - 52px - 58px);
+                height: calc(100dvh - 52px - 58px);
+                position: relative;
+            }
+
+            /* Responsive view switching on tablets/phones */
+            .col-left, .col-center, .col-right {
+                width: 100% !important;
+                min-width: 100% !important;
+                max-width: 100% !important;
+                position: absolute;
+                inset: 0;
+                border: none;
+            }
+
+            .workspace[data-mobile-view="navigator"] .col-left { display: flex; z-index: 10; }
+            .workspace[data-mobile-view="navigator"] .col-center { display: none; }
+            .workspace[data-mobile-view="navigator"] .col-right { display: none; }
+
+            .workspace[data-mobile-view="reader"] .col-left { display: none; }
+            .workspace[data-mobile-view="reader"] .col-center { display: flex; z-index: 10; }
+            .workspace[data-mobile-view="reader"] .col-right { display: none; }
+
+            .workspace[data-mobile-view="studio"] .col-left { display: none; }
+            .workspace[data-mobile-view="studio"] .col-center { display: none; }
+            .workspace[data-mobile-view="studio"] .col-right { display: flex; z-index: 10; }
+
+            .mobile-nav-bar {
+                display: flex;
+            }
+
+            .reader-viewport {
+                padding: 20px 24px;
+            }
+
+            .reader-toolbar {
+                padding: 0 12px;
+                gap: 8px;
+            }
+        }
+
+        /* MOBILE PHONES (<= 768px) */
+        @media (max-width: 768px) {
+            .top-nav {
+                padding: 0 10px;
+            }
+
+            .btn-nav .btn-text {
+                display: none;
+            }
+
+            .btn-nav {
+                padding: 8px 10px;
+                border-radius: 8px;
+            }
+
+            .user-menu {
+                padding-left: 6px;
+                gap: 6px;
+            }
+
+            #navUserName {
+                display: none;
+            }
+
+            .reader-viewport {
+                padding: 16px 12px;
+            }
+
+            .paper-article {
+                font-size: 15.5px;
+                line-height: 1.65;
+            }
+
+            .paper-article h1 {
+                font-size: 20px;
+            }
+
+            .paper-article h2 {
+                font-size: 16.5px;
+                margin: 22px 0 10px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .toolbar-group {
+                gap: 4px;
+            }
+
+            .search-paper-box {
+                width: 140px;
+                padding: 3px 6px;
+            }
+
+            .tool-btn {
+                padding: 5px 7px;
+                font-size: 11px;
+            }
+
+            .audio-master-card {
+                padding: 12px 14px;
+            }
+
+            .audio-options-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+
+            .modal-card {
+                padding: 18px 14px;
+                max-width: 95vw;
+                max-height: 88vh;
+                overflow-y: auto;
+            }
+
+            .onboarding-banner {
+                padding: 12px 14px;
+            }
+
+            .onboarding-steps-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .prompt-chips-bar {
+                padding: 6px 10px;
+            }
+
+            .chat-input-area {
+                padding: 8px 10px;
+            }
+
+            .drop-zone {
+                padding: 20px 14px;
+            }
+
+            .drop-zone-icon {
+                font-size: 28px;
+            }
+
+            .global-drag-card {
+                padding: 30px 20px;
+                max-width: 90vw;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1018,9 +1536,10 @@
         </div>
 
         <div class="nav-actions">
-            <button class="btn-nav primary" onclick="openUploadModal()"><i class="fas fa-file-arrow-up"></i> Load Paper / ArXiv</button>
-            <button class="btn-nav" onclick="triggerPodcastGeneration()"><i class="fas fa-podcast" style="color:#c084fc;"></i> Generate Podcast</button>
-            <button class="btn-nav" onclick="triggerCritique()"><i class="fas fa-microscope" style="color:#38bdf8;"></i> Peer Review Critique</button>
+            <button class="btn-nav" onclick="openGuideModal()" title="Quick User Guide"><i class="fas fa-circle-question" style="color:var(--accent-cyan);"></i> <span class="btn-text">Guide</span></button>
+            <button class="btn-nav primary" onclick="openUploadModal()" title="Upload or open paper"><i class="fas fa-cloud-arrow-up"></i> <span class="btn-text">Load Paper</span></button>
+            <button class="btn-nav" onclick="triggerPodcastGeneration()" title="Generate 2-host audio podcast"><i class="fas fa-podcast" style="color:#c084fc;"></i> <span class="btn-text">Podcast</span></button>
+            <button class="btn-nav" onclick="triggerCritique()" title="Peer review critique"><i class="fas fa-microscope" style="color:#38bdf8;"></i> <span class="btn-text">Critique</span></button>
             
             <div class="user-menu">
                 <div class="user-avatar" id="navAvatar">U</div>
@@ -1031,7 +1550,7 @@
     </header>
 
     <!-- 3-COLUMN MAIN WORKSPACE -->
-    <div class="workspace">
+    <div class="workspace" id="mainWorkspace" data-mobile-view="reader">
         
         <!-- COLUMN 1: LEFT SECTION & EQUATION NAVIGATOR -->
         <aside class="col-left">
@@ -1044,12 +1563,19 @@
                         <span id="statAudioTime"><i class="fas fa-headphones"></i> ~0m</span>
                     </div>
                 </div>
+
+                <!-- QUICK SIDEBAR DRAG & DROP TARGET -->
+                <div class="sidebar-dropzone" id="sidebarDropZone" onclick="triggerFileInput()" title="Drag & Drop IEEE PDF file here or click to browse">
+                    <i class="fas fa-cloud-arrow-up" style="font-size:13px; color:var(--accent-cyan);"></i>
+                    <span>Drag & Drop PDF here</span>
+                </div>
             </div>
 
             <div class="left-tabs">
                 <button class="left-tab active" id="tabNavSections" onclick="switchLeftTab('sections')">📑 Sections</button>
                 <button class="left-tab" id="tabNavEquations" onclick="switchLeftTab('equations')">🧮 Equations</button>
                 <button class="left-tab" id="tabNavNotes" onclick="switchLeftTab('notes')">📝 Notes</button>
+                <button class="left-tab" id="tabNavHistory" onclick="switchLeftTab('history')">📚 History</button>
             </div>
 
             <div class="left-body" id="leftSectionsContainer">
@@ -1129,6 +1655,28 @@
                     </div>
                 </div>
             </div>
+
+            <!-- HISTORY STUDIO TAB -->
+            <div class="left-body" id="leftHistoryContainer" style="display:none;">
+                <div class="search-paper-box" style="width:100%; margin-bottom:10px; background:#0b1324;">
+                    <i class="fas fa-search" style="color:var(--text-muted); font-size:11px;"></i>
+                    <input type="text" id="historySearchInput" placeholder="Filter previous papers..." oninput="filterHistoryList()" />
+                </div>
+                <div class="notes-quick-actions">
+                    <button class="note-quick-action-btn" onclick="loadHistoryList()" title="Refresh previous sessions list">
+                        <i class="fas fa-rotate"></i> Refresh
+                    </button>
+                    <button class="note-quick-action-btn" onclick="clearAllHistory()" title="Clear all past paper and chat history">
+                        <i class="fas fa-trash-can"></i> Clear All
+                    </button>
+                </div>
+                <div class="notes-feed" id="savedHistoryList">
+                    <div style="text-align:center; padding:24px 10px; color:var(--text-muted); font-size:12px;">
+                        <i class="fas fa-clock-rotate-left" style="font-size:24px; margin-bottom:8px; opacity:0.4;"></i>
+                        <p>No past paper sessions found.<br>Upload a paper or link to start a session.</p>
+                    </div>
+                </div>
+            </div>
         </aside>
 
         <!-- COLUMN 2: CENTER ACADEMIC PAPER READER -->
@@ -1155,13 +1703,63 @@
             <!-- STRUCTURED ARTICLE VIEWER -->
             <div class="reader-viewport" id="readerViewport">
                 <article class="paper-article" id="paperArticleContent">
-                    <div style="text-align:center; padding:60px 20px;">
-                        <i class="fas fa-book-bookmark" style="font-size:48px; color:var(--accent-blue); margin-bottom:16px; opacity:0.7;"></i>
-                        <h1 style="font-size:22px;">Welcome to IEEE Scholar AI</h1>
-                        <p style="color:var(--text-secondary); max-width:540px; margin:0 auto; font-family:'Plus Jakarta Sans', sans-serif; font-size:14px;">
-                            Upload any double-column IEEE research paper or paste an ArXiv link to read, listen, analyze math equations, and generate multi-speaker research podcasts.
+                    <div style="text-align:center; padding:30px 20px;">
+                        <!-- NEW USER ONBOARDING BANNER -->
+                        <div class="onboarding-banner" id="onboardingBanner">
+                            <div class="onboarding-header">
+                                <span class="onboarding-title"><i class="fas fa-compass"></i> New to IEEE Scholar AI? Here is how to get started:</span>
+                                <button class="onboarding-close-btn" onclick="dismissOnboardingBanner()" title="Dismiss guide"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="onboarding-steps-grid">
+                                <div class="onboarding-step-card">
+                                    <div class="onboarding-step-num">1</div>
+                                    <div class="onboarding-step-content">
+                                        <strong>Upload or Paste</strong>
+                                        Drop any PDF paper here or paste an ArXiv URL.
+                                    </div>
+                                </div>
+                                <div class="onboarding-step-card">
+                                    <div class="onboarding-step-num">2</div>
+                                    <div class="onboarding-step-content">
+                                        <strong>Listen & Read</strong>
+                                        Read in clean 2-column format or listen with audio highlighting.
+                                    </div>
+                                </div>
+                                <div class="onboarding-step-card">
+                                    <div class="onboarding-step-num">3</div>
+                                    <div class="onboarding-step-content">
+                                        <strong>AI Podcast & Chat</strong>
+                                        Generate 2-host audio episodes or ask questions about proofs & code.
+                                    </div>
+                                </div>
+                                <div class="onboarding-step-card">
+                                    <div class="onboarding-step-num">4</div>
+                                    <div class="onboarding-step-content">
+                                        <strong>Formulas & Notes</strong>
+                                        Auto-extract LaTeX formulas and export study takeaways.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <i class="fas fa-book-bookmark" style="font-size:44px; color:var(--accent-blue); margin-bottom:12px; opacity:0.85;"></i>
+                        <h1 style="font-size:22px; margin-bottom:8px;">Ready to Explore Research Papers</h1>
+                        <p style="color:var(--text-secondary); max-width:540px; margin:0 auto 18px; font-family:'Plus Jakarta Sans', sans-serif; font-size:13.5px;">
+                            Drag & drop an IEEE / arXiv research paper anywhere or paste a link to get automatic 2-column de-noising, voice narration, formula breakdowns, and instant Q&A.
                         </p>
-                        <button class="btn-nav primary" style="margin-top:20px;" onclick="openUploadModal()"><i class="fas fa-file-arrow-up"></i> Upload Paper to Begin</button>
+                        
+                        <!-- DROPZONE HERO IN EMPTY STATE -->
+                        <div class="drop-zone" style="max-width:500px; margin:0 auto 16px;" onclick="openUploadModal()">
+                            <i class="fas fa-cloud-arrow-up drop-zone-icon"></i>
+                            <div class="drop-zone-title">Drag & Drop IEEE PDF here</div>
+                            <div class="drop-zone-subtitle">or click to open file uploader / paste ArXiv link</div>
+                        </div>
+
+                        <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+                            <button class="btn-nav primary" onclick="openUploadModal()"><i class="fas fa-file-arrow-up"></i> Upload Paper / Link</button>
+                            <button class="btn-nav" onclick="openGuideModal()"><i class="fas fa-lightbulb" style="color:var(--accent-cyan);"></i> Learn How It Works</button>
+                            <button class="btn-nav" onclick="switchLeftTab('history')"><i class="fas fa-clock-rotate-left"></i> Previous Papers</button>
+                        </div>
                     </div>
                 </article>
             </div>
@@ -1244,6 +1842,14 @@
 
             <!-- PANEL 2: SCHOLAR RAG CHAT -->
             <div class="studio-panel" id="panelStudioChat">
+                <div class="chat-header-bar">
+                    <span id="chatStatsLabel"><i class="fas fa-comments"></i> 0 conversation turns</span>
+                    <div style="display:flex; gap:6px;">
+                        <button class="chat-tool-btn" onclick="exportChatHistory()" title="Export chat conversation as Markdown"><i class="fas fa-download"></i> Export (.md)</button>
+                        <button class="chat-tool-btn" onclick="clearCurrentChat()" title="Clear chat history for this paper"><i class="fas fa-trash-can"></i> Clear</button>
+                    </div>
+                </div>
+
                 <div class="chat-feed" id="scholarChatFeed">
                     <div class="chat-bubble scholar">
                         👋 <strong>Welcome, Fellow Researcher!</strong><br>
@@ -1296,19 +1902,88 @@
             </div>
 
             <div id="uploadPanePdf">
-                <input type="file" id="paperFileInput" accept=".pdf" class="modal-input" />
+                <div class="drop-zone" id="modalDropZone" onclick="triggerFileInput()">
+                    <input type="file" id="paperFileInput" accept=".pdf" style="display:none;" onchange="handleFileSelection(event)" />
+                    <i class="fas fa-cloud-arrow-up drop-zone-icon"></i>
+                    <div class="drop-zone-title">Drag & Drop IEEE PDF here</div>
+                    <div class="drop-zone-subtitle">or click to browse your files (up to 50MB)</div>
+                    <div id="fileSelectedBadge" class="file-selected-badge" style="display:none;" onclick="event.stopPropagation()">
+                        <span id="selectedFileName"><i class="fas fa-file-pdf" style="color:#f87171; margin-right:6px;"></i> filename.pdf</span>
+                        <button class="tool-btn" style="padding:2px 6px; font-size:11px;" onclick="clearSelectedFile(event)"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
             </div>
 
             <div id="uploadPaneUrl" style="display:none;">
                 <input type="url" id="paperUrlInput" placeholder="https://arxiv.org/abs/2301.00000 or IEEE link" class="modal-input" />
             </div>
 
-            <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
                 <button class="btn-nav" onclick="closeUploadModal()">Cancel</button>
                 <button class="btn-nav primary" id="btnProcessPaper" onclick="processPaperUpload()">Analyze & Ingest</button>
             </div>
         </div>
     </div>
+
+    <!-- QUICK USER GUIDE MODAL -->
+    <div class="modal-overlay" id="guideModal">
+        <div class="modal-card" style="max-width:580px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+                <div style="font-size:17px; font-weight:700; color:#38bdf8; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-graduation-cap"></i> Getting Started with IEEE Scholar AI
+                </div>
+                <button class="onboarding-close-btn" onclick="closeGuideModal()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:12px; font-size:13px; color:#cbd5e1; line-height:1.5;">
+                <div style="background:#13223b; border-left:3px solid var(--accent-cyan); padding:10px 14px; border-radius:6px;">
+                    <strong style="color:#f8fafc;">1. Ingesting Papers</strong><br>
+                    Drag and drop any double-column IEEE/ArXiv PDF anywhere on screen, or paste an arXiv link. The engine automatically de-noises columns into readable linear text.
+                </div>
+                <div style="background:#13223b; border-left:3px solid var(--accent-blue); padding:10px 14px; border-radius:6px;">
+                    <strong style="color:#f8fafc;">2. Listening & Reading</strong><br>
+                    Click <em>Listen All</em> or play individual sections from the left menu. Sentence-level highlights follow speech in real time.
+                </div>
+                <div style="background:#13223b; border-left:3px solid #c084fc; padding:10px 14px; border-radius:6px;">
+                    <strong style="color:#f8fafc;">3. AI Podcast Studio</strong><br>
+                    Generate a NotebookLM-style 2-speaker podcast (Alex & Dr. Sam) that simplifies technical contributions and benchmarks.
+                </div>
+                <div style="background:#13223b; border-left:3px solid #34d399; padding:10px 14px; border-radius:6px;">
+                    <strong style="color:#f8fafc;">4. Math & Note Taking</strong><br>
+                    Use the <em>Equations</em> tab to deconstruct formulas into step-by-step LaTeX explanations, or capture study bullets in the <em>Notes</em> tab.
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; margin-top:18px;">
+                <button class="btn-nav primary" onclick="closeGuideModal(); openUploadModal();">Get Started (Upload Paper)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GLOBAL DRAG OVERLAY -->
+    <div class="global-drag-overlay" id="globalDragOverlay">
+        <div class="global-drag-card">
+            <i class="fas fa-file-arrow-up" style="font-size:56px; color:var(--accent-cyan); margin-bottom:16px;"></i>
+            <h2 style="font-size:22px; font-weight:800; margin-bottom:8px; color:#fff;">Drop IEEE Research Paper Here</h2>
+            <p style="color:#94a3b8; font-size:14px;">Release anywhere to parse 2-column layout, formulas, and enable audio narration & chat.</p>
+        </div>
+    </div>
+
+    <!-- MOBILE & TABLET BOTTOM VIEW BAR -->
+    <nav class="mobile-nav-bar" id="mobileNavBar">
+        <button class="mobile-nav-item" id="mTabNav" onclick="switchMobileView('navigator')">
+            <i class="fas fa-layer-group"></i>
+            <span>Navigator</span>
+        </button>
+        <button class="mobile-nav-item active" id="mTabReader" onclick="switchMobileView('reader')">
+            <i class="fas fa-book-open"></i>
+            <span>Reader</span>
+        </button>
+        <button class="mobile-nav-item" id="mTabStudio" onclick="switchMobileView('studio')">
+            <i class="fas fa-headphones-simple"></i>
+            <span>Studio & AI</span>
+        </button>
+    </nav>
 
     <div id="toast"></div>
 
@@ -1321,6 +1996,7 @@
         let readerFontSize = 17;
         let isTwoColumn = false;
         let readerMode = 'article'; // 'article' or 'pdf'
+        let selectedPdfFile = null;
 
         // Audio state
         let ttsSynth = window.speechSynthesis;
@@ -1334,9 +2010,29 @@
         let podcastScript = [];
         let podcastPlayingTurn = -1;
 
+        // History state
+        let currentHistory = [];
+        let currentMobileView = 'reader';
+
         // =========================================================
-        // BOOTSTRAP
+        // BOOTSTRAP & MOBILE RESPONSIVE ADAPTATION
         // =========================================================
+        function switchMobileView(view) {
+            currentMobileView = view;
+            const ws = document.getElementById("mainWorkspace");
+            if (ws) {
+                ws.setAttribute("data-mobile-view", view);
+            }
+            const tabs = {
+                'navigator': document.getElementById('mTabNav'),
+                'reader': document.getElementById('mTabReader'),
+                'studio': document.getElementById('mTabStudio')
+            };
+            Object.keys(tabs).forEach(k => {
+                if (tabs[k]) tabs[k].classList.toggle('active', k === view);
+            });
+        }
+
         async function bootstrap() {
             try {
                 const res = await fetch("/check_auth", { credentials: "same-origin" });
@@ -1353,14 +2049,18 @@
                     speechSynthesis.onvoiceschanged = loadVoices;
                 }
 
-                // Check if a paper is already loaded
+                // Check if a paper is already loaded (or auto-restored from history)
                 const paperRes = await fetch("/api/paper/details");
                 const paperData = await paperRes.json();
                 if (paperData.loaded) {
                     renderPaperData(paperData);
+                    if (paperData.chat_history && paperData.chat_history.length > 0) {
+                        renderChatHistory(paperData.chat_history);
+                    }
                 }
 
                 loadNotes();
+                initDragAndDrop();
             } catch(e) {
                 console.error("Bootstrap error:", e);
             }
@@ -1374,10 +2074,196 @@
         }
 
         // =========================================================
+        // ONBOARDING & HELP GUIDE CONTROLS
+        // =========================================================
+        function dismissOnboardingBanner() {
+            const banner = document.getElementById("onboardingBanner");
+            if (banner) {
+                banner.style.display = "none";
+                localStorage.setItem("ieee_scholar_onboarded", "true");
+            }
+        }
+
+        function openGuideModal() {
+            document.getElementById("guideModal").style.display = "flex";
+        }
+
+        function closeGuideModal() {
+            document.getElementById("guideModal").style.display = "none";
+        }
+
+        // =========================================================
+        // DRAG AND DROP ENGINE
+        // =========================================================
+        function initDragAndDrop() {
+            let dragCounter = 0;
+            const overlay = document.getElementById("globalDragOverlay");
+
+            // Prevent default drag/drop behaviors across entire window
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                window.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+                document.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            // Global Window Drag Overlay Tracking
+            window.addEventListener("dragenter", (e) => {
+                e.preventDefault();
+                dragCounter++;
+                if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes("Files")) {
+                    overlay.classList.add("active");
+                }
+            });
+
+            window.addEventListener("dragleave", (e) => {
+                e.preventDefault();
+                dragCounter--;
+                if (dragCounter <= 0) {
+                    dragCounter = 0;
+                    overlay.classList.remove("active");
+                }
+            });
+
+            window.addEventListener("dragover", (e) => {
+                e.preventDefault();
+            });
+
+            window.addEventListener("drop", (e) => {
+                e.preventDefault();
+                dragCounter = 0;
+                overlay.classList.remove("active");
+
+                const files = e.dataTransfer ? e.dataTransfer.files : null;
+                if (files && files.length > 0) {
+                    const file = files[0];
+                    if (!file.name.toLowerCase().endsWith(".pdf")) {
+                        showToast("⚠️ Only PDF research papers are supported");
+                        return;
+                    }
+                    uploadDirectFile(file);
+                }
+            });
+
+            // Sidebar Drop Zone handling
+            const sidebarDrop = document.getElementById("sidebarDropZone");
+            if (sidebarDrop) {
+                sidebarDrop.addEventListener("dragover", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    sidebarDrop.classList.add("dragover");
+                });
+                sidebarDrop.addEventListener("dragleave", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    sidebarDrop.classList.remove("dragover");
+                });
+                sidebarDrop.addEventListener("drop", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    sidebarDrop.classList.remove("dragover");
+                    overlay.classList.remove("active");
+                    dragCounter = 0;
+                    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        const file = e.dataTransfer.files[0];
+                        if (file.name.toLowerCase().endsWith(".pdf")) {
+                            uploadDirectFile(file);
+                        } else {
+                            showToast("⚠️ Only PDF research papers are supported");
+                        }
+                    }
+                });
+            }
+
+            // Modal Drop Zone specific handling
+            const modalDrop = document.getElementById("modalDropZone");
+            if (modalDrop) {
+                modalDrop.addEventListener("dragover", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modalDrop.classList.add("dragover");
+                });
+                modalDrop.addEventListener("dragleave", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modalDrop.classList.remove("dragover");
+                });
+                modalDrop.addEventListener("drop", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modalDrop.classList.remove("dragover");
+                    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        setModalSelectedFile(e.dataTransfer.files[0]);
+                    }
+                });
+            }
+        }
+
+        function triggerFileInput() {
+            document.getElementById("paperFileInput").click();
+        }
+
+        function handleFileSelection(e) {
+            if (e.target.files && e.target.files.length > 0) {
+                setModalSelectedFile(e.target.files[0]);
+            }
+        }
+
+        function setModalSelectedFile(file) {
+            if (!file.name.toLowerCase().endsWith(".pdf")) {
+                showToast("⚠️ Please select an IEEE / academic PDF file");
+                return;
+            }
+            selectedPdfFile = file;
+            const badge = document.getElementById("fileSelectedBadge");
+            const label = document.getElementById("selectedFileName");
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+            label.innerHTML = `<i class="fas fa-file-pdf" style="color:#f87171; margin-right:6px;"></i> <strong>${file.name}</strong> (${sizeMb} MB)`;
+            badge.style.display = "flex";
+        }
+
+        function clearSelectedFile(e) {
+            if (e) e.stopPropagation();
+            selectedPdfFile = null;
+            document.getElementById("paperFileInput").value = "";
+            document.getElementById("fileSelectedBadge").style.display = "none";
+        }
+
+        async function uploadDirectFile(file) {
+            showToast("📥 Ingesting dropped PDF...");
+            const form = new FormData();
+            form.append("file", file);
+
+            try {
+                const res = await fetch("/upload_paper", { method: "POST", body: form });
+                const data = await res.json();
+                if (data.error) {
+                    showToast("❌ " + data.error);
+                } else {
+                    renderPaperData(data);
+                    if (data.chat_history) {
+                        renderChatHistory(data.chat_history);
+                    }
+                    showToast("✅ Paper loaded and structured!");
+                }
+            } catch(e) {
+                showToast("❌ Upload failed: " + e.message);
+            }
+        }
+
+        // =========================================================
         // PAPER INGESTION (PDF / URL)
         // =========================================================
-        function openUploadModal() { document.getElementById("uploadModal").style.display = "flex"; }
-        function closeUploadModal() { document.getElementById("uploadModal").style.display = "none"; }
+        function openUploadModal() { 
+            document.getElementById("uploadModal").style.display = "flex"; 
+        }
+        function closeUploadModal() { 
+            document.getElementById("uploadModal").style.display = "none"; 
+        }
 
         function toggleUploadTab(type) {
             document.getElementById("btnUploadTabPdf").classList.toggle("active", type === 'pdf');
@@ -1396,9 +2282,9 @@
                 let res, data;
 
                 if (isPdf) {
-                    const file = document.getElementById("paperFileInput").files[0];
+                    const file = selectedPdfFile || document.getElementById("paperFileInput").files[0];
                     if (!file) {
-                        showToast("Please choose a PDF paper file");
+                        showToast("Please choose or drop a PDF paper file");
                         btn.disabled = false;
                         btn.textContent = "Analyze & Ingest";
                         return;
@@ -1426,13 +2312,12 @@
                     showToast("❌ " + data.error);
                 } else {
                     renderPaperData(data);
+                    if (data.chat_history) {
+                        renderChatHistory(data.chat_history);
+                    }
+                    clearSelectedFile();
                     closeUploadModal();
                     showToast("✅ Paper ingested and structured!");
-                    
-                    // Render executive overview in chat
-                    if (data.overview_summary) {
-                        appendScholarMessage(data.overview_summary, "Executive Academic Overview");
-                    }
                 }
             } catch(e) {
                 showToast("❌ Upload failed: " + e.message);
@@ -1455,6 +2340,11 @@
             let totalWords = (data.sections || []).reduce((acc, s) => acc + (s.word_count || 0), 0);
             let estMins = Math.max(1, Math.round(totalWords / 140));
             document.getElementById("statAudioTime").innerHTML = `<i class="fas fa-headphones"></i> ~${estMins}m`;
+
+            // Auto-switch to reader on tablets/mobile when paper loads
+            if (window.innerWidth <= 1024) {
+                switchMobileView('reader');
+            }
 
             // Render PDF frame URL
             if (data.file_url) {
@@ -1484,6 +2374,11 @@
 
             // Render Equations in Left Column
             renderEquationsList(data.equations || []);
+
+            // Render Notes in Left Column
+            if (data.notes) {
+                renderNotesList(data.notes);
+            }
 
             // Render Main Reader Article Content
             renderArticleHtml(data);
@@ -1537,6 +2432,9 @@
         }
 
         function scrollToSection(secId) {
+            if (window.innerWidth <= 1024) {
+                switchMobileView('reader');
+            }
             document.querySelectorAll(".section-item").forEach(el => el.classList.remove("active"));
             const navEl = document.getElementById(`sec-nav-${secId}`);
             if (navEl) navEl.classList.add("active");
@@ -1881,7 +2779,7 @@
         }
 
         // =========================================================
-        // SCHOLAR Q&A (RAG)
+        // SCHOLAR Q&A (RAG) & CHAT HISTORY
         // =========================================================
         function onScholarEnter(e) {
             if (e.key === "Enter") sendScholarQuery();
@@ -1912,6 +2810,11 @@
                 const data = await res.json();
                 scholarMsg.innerHTML = formatMarkdown(data.answer || "No response");
                 
+                if (data.chat_history) {
+                    if (currentPaper) currentPaper.chat_history = data.chat_history;
+                    updateChatStats(data.chat_history.length);
+                }
+
                 if (window.renderMathInElement) {
                     renderMathInElement(scholarMsg, {
                         delimiters: [
@@ -1946,6 +2849,94 @@
             return div;
         }
 
+        function renderChatHistory(chatList) {
+            const feed = document.getElementById("scholarChatFeed");
+            feed.innerHTML = `
+                <div class="chat-bubble scholar">
+                    👋 <strong>Welcome, Fellow Researcher!</strong><br>
+                    Ask any question about the methodology, mathematical formulations, baseline benchmarks, or limitations of this paper.
+                </div>
+            `;
+
+            if (!chatList || chatList.length === 0) {
+                updateChatStats(0);
+                return;
+            }
+
+            chatList.forEach(turn => {
+                if (turn.question && turn.question !== "Executive Academic Overview") {
+                    appendUserMessage(turn.question);
+                }
+                const title = turn.type === 'overview' ? 'Executive Academic Overview' : 'AI Scholar';
+                appendScholarMessage(turn.answer, title);
+            });
+
+            updateChatStats(chatList.length);
+
+            if (window.renderMathInElement) {
+                renderMathInElement(feed, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+
+        function updateChatStats(count) {
+            const label = document.getElementById("chatStatsLabel");
+            if (label) {
+                label.innerHTML = `<i class="fas fa-comments"></i> ${count} conversation turns`;
+            }
+        }
+
+        async function clearCurrentChat() {
+            if (!confirm("Clear conversation history for this research paper?")) return;
+            try {
+                const res = await fetch("/api/chat/clear", { method: "POST", credentials: "same-origin" });
+                const data = await res.json();
+                if (data.success) {
+                    if (currentPaper) currentPaper.chat_history = [];
+                    renderChatHistory([]);
+                    showToast("Conversation cleared");
+                }
+            } catch(e) {
+                console.error("Clear chat error:", e);
+            }
+        }
+
+        function exportChatHistory() {
+            const history = (currentPaper && currentPaper.chat_history) ? currentPaper.chat_history : [];
+            if (history.length === 0) {
+                showToast("No conversation to export");
+                return;
+            }
+
+            const title = currentPaper ? (currentPaper.title || "Research Paper") : "IEEE Research Study";
+            let mdContent = `# Research Chat Transcript\n`;
+            mdContent += `**Paper**: ${title}\n`;
+            mdContent += `**Exported**: ${new Date().toLocaleString()}\n\n`;
+            mdContent += `---\n\n`;
+
+            history.forEach((turn, idx) => {
+                mdContent += `### Q${idx + 1}: ${turn.question}\n\n`;
+                mdContent += `**Answer**:\n${turn.answer}\n\n`;
+                mdContent += `*Recorded at ${turn.timestamp || ''}*\n\n---\n\n`;
+            });
+
+            const blob = new Blob([mdContent], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `scholar_chat_${Date.now()}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("📥 Chat conversation exported as Markdown!");
+        }
+
         async function triggerCritique() {
             switchStudioTab('chat');
             appendUserMessage("Conduct a full peer-review level critical appraisal.");
@@ -1957,6 +2948,162 @@
                 if (window.renderMathInElement) renderMathInElement(bubble, { delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}] });
             } catch(e) {
                 bubble.innerHTML = `⚠️ Error: ${e.message}`;
+            }
+        }
+
+        // =========================================================
+        // HISTORY & PREVIOUS PAPERS MANAGEMENT
+        // =========================================================
+        async function loadHistoryList() {
+            try {
+                const res = await fetch("/api/history", { credentials: "same-origin" });
+                const data = await res.json();
+                currentHistory = data.history || [];
+                renderHistoryList(currentHistory);
+            } catch(e) {
+                console.error("Error loading paper history:", e);
+            }
+        }
+
+        function renderHistoryList(historyList) {
+            const container = document.getElementById("savedHistoryList");
+            if (!container) return;
+
+            if (!historyList || historyList.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:24px 10px; color:var(--text-muted); font-size:12px;">
+                        <i class="fas fa-clock-rotate-left" style="font-size:24px; margin-bottom:8px; opacity:0.4;"></i>
+                        <p>No previous paper sessions found.<br>Upload a paper or link to start a session.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = "";
+            const activeId = currentPaper ? (currentPaper.paper_id || (currentPaper.id || null)) : null;
+
+            historyList.forEach(item => {
+                const isActive = item.is_active || (activeId && item.id === activeId);
+                const card = document.createElement("div");
+                card.className = `history-card ${isActive ? 'active-paper' : ''}`;
+                card.id = `history-item-${item.id}`;
+
+                card.innerHTML = `
+                    <div class="history-card-header">
+                        <div class="history-card-title" title="${item.title}">${item.title}</div>
+                        <div class="note-card-actions">
+                            <button class="note-card-action-btn del" title="Delete paper session" onclick="deleteHistoricalPaper('${item.id}', event)"><i class="fas fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                    <div class="history-card-meta">
+                        ${isActive ? '<span class="history-tag active-badge">● ACTIVE</span>' : ''}
+                        <span class="history-tag"><i class="fas fa-file-pdf"></i> ${item.total_pages || 1} pgs</span>
+                        <span class="history-tag"><i class="fas fa-comments"></i> ${item.chats_count || 0} chats</span>
+                        <span class="history-tag"><i class="fas fa-bookmark"></i> ${item.notes_count || 0} notes</span>
+                    </div>
+                    <div class="history-card-footer">
+                        <span><i class="fas fa-calendar-day" style="font-size:9px;"></i> ${item.created_at || ''}</span>
+                        <button class="tool-btn" style="font-size:11px; padding:2px 8px;" onclick="loadHistoricalPaper('${item.id}')">
+                            <i class="fas ${isActive ? 'fa-arrows-rotate' : 'fa-folder-open'}"></i> ${isActive ? 'Reload' : 'Load Session'}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function filterHistoryList() {
+            const query = (document.getElementById("historySearchInput").value || "").toLowerCase().trim();
+            if (!query) {
+                renderHistoryList(currentHistory);
+                return;
+            }
+            const filtered = currentHistory.filter(item => 
+                (item.title || "").toLowerCase().includes(query) || 
+                (item.source_name || "").toLowerCase().includes(query)
+            );
+            renderHistoryList(filtered);
+        }
+
+        async function loadHistoricalPaper(paperId) {
+            showToast("⏳ Restoring paper session & chats...");
+            try {
+                const res = await fetch(`/api/history/${paperId}/load`, {
+                    method: "POST",
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.error) {
+                    showToast("❌ " + data.error);
+                } else {
+                    renderPaperData(data);
+                    renderChatHistory(data.chat_history || []);
+                    loadHistoryList();
+                    switchLeftTab('sections');
+                    showToast(`✅ Loaded session: ${data.title.substring(0, 28)}...`);
+                }
+            } catch(e) {
+                showToast("❌ Failed to load session: " + e.message);
+            }
+        }
+
+        async function deleteHistoricalPaper(paperId, e) {
+            if (e) e.stopPropagation();
+            if (!confirm("Are you sure you want to remove this paper and its conversation history?")) return;
+
+            try {
+                const res = await fetch(`/api/history/${paperId}`, {
+                    method: "DELETE",
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("Paper session removed");
+                    loadHistoryList();
+                    // If current paper was deleted, reload details
+                    if (currentPaper && currentPaper.paper_id === paperId) {
+                        const detailsRes = await fetch("/api/paper/details");
+                        const detailsData = await detailsRes.json();
+                        if (detailsData.loaded) {
+                            renderPaperData(detailsData);
+                            renderChatHistory(detailsData.chat_history || []);
+                        } else {
+                            currentPaper = null;
+                            document.getElementById("sidePaperTitle").textContent = "No paper loaded";
+                            document.getElementById("paperArticleContent").innerHTML = `
+                                <div style="text-align:center; padding:50px 20px;">
+                                    <i class="fas fa-book-bookmark" style="font-size:48px; color:var(--accent-blue); margin-bottom:16px; opacity:0.7;"></i>
+                                    <h1 style="font-size:22px;">Welcome to IEEE Scholar AI</h1>
+                                    <p style="color:var(--text-secondary); max-width:540px; margin:0 auto 20px;">Upload a paper to begin.</p>
+                                    <button class="btn-nav primary" onclick="openUploadModal()"><i class="fas fa-file-arrow-up"></i> Upload Paper</button>
+                                </div>
+                            `;
+                            renderChatHistory([]);
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error("Delete history error:", e);
+            }
+        }
+
+        async function clearAllHistory() {
+            if (!confirm("Are you sure you want to delete ALL previous papers and conversations?")) return;
+            try {
+                const res = await fetch("/api/history/clear", {
+                    method: "POST",
+                    credentials: "same-origin"
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("All history cleared");
+                    loadHistoryList();
+                    currentPaper = null;
+                    document.getElementById("sidePaperTitle").textContent = "No paper loaded";
+                    renderChatHistory([]);
+                }
+            } catch(e) {
+                console.error("Clear all history error:", e);
             }
         }
 
@@ -2452,22 +3599,32 @@
         // TAB SWITCHING UTILITIES
         // =========================================================
         function switchLeftTab(tab) {
+            if (window.innerWidth <= 1024) {
+                switchMobileView('navigator');
+            }
             document.getElementById("tabNavSections").classList.toggle("active", tab === 'sections');
             document.getElementById("tabNavEquations").classList.toggle("active", tab === 'equations');
             document.getElementById("tabNavNotes").classList.toggle("active", tab === 'notes');
+            document.getElementById("tabNavHistory").classList.toggle("active", tab === 'history');
 
             document.getElementById("leftSectionsContainer").style.display = tab === 'sections' ? 'block' : 'none';
             document.getElementById("leftEquationsContainer").style.display = tab === 'equations' ? 'block' : 'none';
             document.getElementById("leftNotesContainer").style.display = tab === 'notes' ? 'block' : 'none';
+            document.getElementById("leftHistoryContainer").style.display = tab === 'history' ? 'block' : 'none';
 
             if (tab === 'notes') {
                 loadNotes();
             } else if (tab === 'equations') {
                 loadEquations();
+            } else if (tab === 'history') {
+                loadHistoryList();
             }
         }
 
         function switchStudioTab(tab) {
+            if (window.innerWidth <= 1024) {
+                switchMobileView('studio');
+            }
             document.getElementById("tabStudioPodcast").classList.toggle("active", tab === 'podcast');
             document.getElementById("tabStudioChat").classList.toggle("active", tab === 'chat');
             document.getElementById("tabStudioMath").classList.toggle("active", tab === 'math');

@@ -181,23 +181,6 @@ def query_llm(prompt, temperature=0.3):
         "Please check your GROQ_API_KEY / Groq account or start local Ollama ('ollama run qwen2.5vl' or 'ollama serve')."
     )
 
-    # 2. Try Local Ollama
-    try:
-        res = requests.post(
-            f"{OLLAMA_URL}/api/generate",
-            json={"model": MODEL, "prompt": prompt, "stream": False, "options": {"temperature": temperature}},
-            timeout=90
-        )
-        res.raise_for_status()
-        return res.json().get("response", "")
-    except Exception as e:
-        logger.warning(f"Ollama request failed: {e}")
-
-    raise Exception(
-        "No available LLM backend could fulfill the request. "
-        "Please verify your GROQ_API_KEY / Groq model or start Ollama locally ('ollama run qwen2.5vl' or 'ollama serve')."
-    )
-
 # ==========================
 # USER DATABASE & AUTH
 # ==========================
@@ -580,14 +563,76 @@ def split_text_smart(text, chunk_size=750, chunk_overlap=120):
         chunks.append(current_chunk)
     return [c for c in chunks if len(c.strip()) > 50][:120]
 
-user_data = {}
+# ==========================
+# HISTORY & PERSISTENCE ENGINE
+# ==========================
+HISTORY_FILE = os.path.join(os.path.dirname(__file__), "paper_history.json")
 
-def get_user_data():
-    user_id = session.get("user_id")
+def load_history_store():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading history store: {e}")
+            return {}
+    return {}
+
+def save_history_store(data):
+    try:
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"Error saving history store: {e}")
+
+def get_user_history_list(user_id):
     if not user_id:
-        return None
+        return []
+    store = load_history_store()
+    return store.get(user_id, [])
+
+def save_paper_to_history(user_id, paper_entry):
+    if not user_id or not paper_entry:
+        return
+    store = load_history_store()
+    if user_id not in store:
+        store[user_id] = []
+    
+    # Check if this paper ID already exists in history, if so update it
+    exists = False
+    for i, item in enumerate(store[user_id]):
+        if item.get("id") == paper_entry.get("id"):
+            store[user_id][i] = paper_entry
+            exists = True
+            break
+    if not exists:
+        store[user_id].insert(0, paper_entry)
+        if len(store[user_id]) > 50:
+            store[user_id] = store[user_id][:50]
+    save_history_store(store)
+
+def sync_active_paper_history(user_id, user_data_obj):
+    if not user_id or not user_data_obj or not user_data_obj.get("paper_id"):
+        return
+    paper_id = user_data_obj["paper_id"]
+    store = load_history_store()
+    if user_id in store:
+        for item in store[user_id]:
+            if item.get("id") == paper_id:
+                if user_data_obj.get("paper_info"):
+                    item["equations"] = user_data_obj["paper_info"].get("equations", [])
+                    item["sections"] = user_data_obj["paper_info"].get("sections", [])
+                item["saved_notes"] = user_data_obj.get("saved_notes", [])
+                item["podcast_script"] = user_data_obj.get("podcast_script")
+                item["chat_history"] = user_data_obj.get("chat_history", [])
+                item["updated_at"] = datetime.now().isoformat()
+                save_history_store(store)
+                break
+
+def restore_paper_into_session(user_id, paper_entry):
     if user_id not in user_data:
         user_data[user_id] = {
+            "paper_id": None,
             "vectorizer": None,
             "matrix": None,
             "fallback_retriever": None,
@@ -597,8 +642,58 @@ def get_user_data():
             "saved_file_path": None,
             "paper_info": None,
             "podcast_script": None,
-            "saved_notes": []
+            "saved_notes": [],
+            "chat_history": []
         }
+    user_data_obj = user_data[user_id]
+    user_data_obj["paper_id"] = paper_entry.get("id")
+    user_data_obj["source_name"] = paper_entry.get("source_name", paper_entry.get("title"))
+    user_data_obj["source_type"] = paper_entry.get("source_type", "pdf")
+    user_data_obj["saved_file_path"] = paper_entry.get("saved_file_path", "")
+    user_data_obj["paper_info"] = {
+        "title": paper_entry.get("title"),
+        "full_text": paper_entry.get("full_text", ""),
+        "total_pages": paper_entry.get("total_pages", 1),
+        "sections": paper_entry.get("sections", []),
+        "equations": paper_entry.get("equations", [])
+    }
+    user_data_obj["podcast_script"] = paper_entry.get("podcast_script")
+    user_data_obj["saved_notes"] = paper_entry.get("saved_notes", [])
+    user_data_obj["chat_history"] = paper_entry.get("chat_history", [])
+    
+    if paper_entry.get("full_text"):
+        build_db(paper_entry["full_text"], user_data_obj)
+        
+    return user_data_obj
+
+user_data = {}
+
+def get_user_data():
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    if user_id not in user_data:
+        user_data[user_id] = {
+            "paper_id": None,
+            "vectorizer": None,
+            "matrix": None,
+            "fallback_retriever": None,
+            "stored_chunks": [],
+            "source_name": None,
+            "source_type": None,
+            "saved_file_path": None,
+            "paper_info": None,
+            "podcast_script": None,
+            "saved_notes": [],
+            "chat_history": []
+        }
+        # Attempt to auto-restore most recent paper from history
+        hist = get_user_history_list(user_id)
+        if hist and len(hist) > 0:
+            try:
+                restore_paper_into_session(user_id, hist[0])
+            except Exception as e:
+                logger.warning(f"Could not auto-restore recent paper: {e}")
     return user_data[user_id]
 
 def build_db(text, user_data_obj):
@@ -872,12 +967,18 @@ def upload_paper():
             return jsonify({"error": "Could not extract text from this paper. It might be a scanned image."}), 400
 
         # Build index and vector database for the active user
+        user_id = session["user_id"]
+        paper_id = f"paper_{int(time.time()*1000)}_{random.randint(100, 999)}"
+        
         user_data_obj = get_user_data()
+        user_data_obj["paper_id"] = paper_id
         user_data_obj["source_name"] = parsed_data["title"] or raw_name
         user_data_obj["source_type"] = "pdf"
         user_data_obj["saved_file_path"] = f"/uploads/{saved_filename}"
         user_data_obj["paper_info"] = parsed_data
         user_data_obj["podcast_script"] = None
+        user_data_obj["saved_notes"] = []
+        user_data_obj["chat_history"] = []
         
         chunk_count = build_db(parsed_data["full_text"], user_data_obj)
 
@@ -896,10 +997,44 @@ Format with clear markdown sections:
 4. 📊 **Experimental Highlights & Performance Gain**
 5. ⚠️ **Main Limitations & Open Questions**
 """
-        initial_explanation = query_llm(summary_prompt, temperature=0.2)
+        initial_explanation = "Paper parsed and indexed successfully."
+        try:
+            initial_explanation = query_llm(summary_prompt, temperature=0.2)
+        except Exception as llm_err:
+            logger.warning(f"Could not generate initial LLM summary on upload: {llm_err}")
+            initial_explanation = f"Paper loaded successfully ({parsed_data['total_pages']} pages, {len(parsed_data['sections'])} sections). AI Overview note: {str(llm_err)}"
+
+        # Add initial overview to chat history
+        user_data_obj["chat_history"].append({
+            "id": f"chat_{int(time.time()*1000)}",
+            "question": "Executive Academic Overview",
+            "answer": initial_explanation,
+            "timestamp": datetime.now().strftime("%b %d, %H:%M"),
+            "type": "overview"
+        })
+
+        # Save to persistent paper history
+        paper_entry = {
+            "id": paper_id,
+            "title": parsed_data["title"],
+            "source_name": parsed_data["title"] or raw_name,
+            "source_type": "pdf",
+            "saved_file_path": f"/uploads/{saved_filename}",
+            "total_pages": parsed_data["total_pages"],
+            "created_at": datetime.now().strftime("%b %d, %Y %H:%M"),
+            "overview_summary": initial_explanation,
+            "sections": parsed_data["sections"],
+            "equations": parsed_data["equations"],
+            "saved_notes": [],
+            "podcast_script": None,
+            "chat_history": user_data_obj["chat_history"],
+            "full_text": parsed_data["full_text"]
+        }
+        save_paper_to_history(user_id, paper_entry)
 
         return jsonify({
             "success": True,
+            "paper_id": paper_id,
             "title": parsed_data["title"],
             "source_name": parsed_data["title"] or raw_name,
             "file_url": f"/uploads/{saved_filename}",
@@ -908,7 +1043,8 @@ Format with clear markdown sections:
             "sections": parsed_data["sections"],
             "equations": parsed_data["equations"],
             "chunks": chunk_count,
-            "overview_summary": initial_explanation
+            "overview_summary": initial_explanation,
+            "chat_history": user_data_obj["chat_history"]
         })
     except Exception as e:
         logger.error(f"Error processing IEEE PDF: {e}")
@@ -962,23 +1098,63 @@ def process_url_endpoint():
             }
             file_url = url
 
-        user_data_obj = get_user_data()
+        user_id = session["user_id"]
+        paper_id = f"paper_{int(time.time()*1000)}_{random.randint(100, 999)}"
         paper_title = str(parsed_data.get("title", "Online Paper"))
         full_paper_text = str(parsed_data.get("full_text", ""))
         
+        user_data_obj = get_user_data()
+        user_data_obj["paper_id"] = paper_id
         user_data_obj["source_name"] = paper_title
         user_data_obj["source_type"] = "url"
         user_data_obj["saved_file_path"] = file_url
         user_data_obj["paper_info"] = parsed_data
         user_data_obj["podcast_script"] = None
+        user_data_obj["saved_notes"] = []
+        user_data_obj["chat_history"] = []
 
         chunk_count = build_db(full_paper_text, user_data_obj)
 
         summary_prompt = f"Provide a structured academic summary of '{paper_title}':\n\n{full_paper_text[:4000]}"
-        initial_explanation = query_llm(summary_prompt)
+        initial_explanation = "Paper parsed and indexed successfully."
+        try:
+            initial_explanation = query_llm(summary_prompt)
+        except Exception as llm_err:
+            logger.warning(f"Could not generate initial LLM summary on URL process: {llm_err}")
+            secs = parsed_data.get("sections")
+            sections_count = len(secs) if isinstance(secs, list) else 1
+            initial_explanation = f"Paper loaded successfully ({parsed_data.get('total_pages', 1)} pages, {sections_count} sections). AI Overview note: {str(llm_err)}"
+
+        user_data_obj["chat_history"].append({
+            "id": f"chat_{int(time.time()*1000)}",
+            "question": "Executive Academic Overview",
+            "answer": initial_explanation,
+            "timestamp": datetime.now().strftime("%b %d, %H:%M"),
+            "type": "overview"
+        })
+
+        # Save to persistent history
+        paper_entry = {
+            "id": paper_id,
+            "title": parsed_data["title"],
+            "source_name": paper_title,
+            "source_type": "url",
+            "saved_file_path": file_url,
+            "total_pages": parsed_data["total_pages"],
+            "created_at": datetime.now().strftime("%b %d, %Y %H:%M"),
+            "overview_summary": initial_explanation,
+            "sections": parsed_data["sections"],
+            "equations": parsed_data["equations"],
+            "saved_notes": [],
+            "podcast_script": None,
+            "chat_history": user_data_obj["chat_history"],
+            "full_text": full_paper_text
+        }
+        save_paper_to_history(user_id, paper_entry)
 
         return jsonify({
             "success": True,
+            "paper_id": paper_id,
             "title": parsed_data["title"],
             "source_name": parsed_data["title"],
             "file_url": file_url,
@@ -986,11 +1162,117 @@ def process_url_endpoint():
             "sections": parsed_data["sections"],
             "equations": parsed_data["equations"],
             "chunks": chunk_count,
-            "overview_summary": initial_explanation
+            "overview_summary": initial_explanation,
+            "chat_history": user_data_obj["chat_history"]
         })
     except Exception as e:
         logger.error(f"Error processing URL: {e}")
         return jsonify({"error": f"Failed to fetch paper: {str(e)}"}), 500
+
+# ==========================
+# HISTORY & SESSIONS API
+# ==========================
+@app.route("/api/history", methods=["GET"])
+def get_history_route():
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_id = session["user_id"]
+    user_data_obj = user_data.get(user_id, {})
+    active_id = user_data_obj.get("paper_id")
+    
+    hist = get_user_history_list(user_id)
+    history_summary = []
+    for p in hist:
+        history_summary.append({
+            "id": p.get("id"),
+            "title": p.get("title", "Untitled Paper"),
+            "source_name": p.get("source_name", p.get("title")),
+            "source_type": p.get("source_type", "pdf"),
+            "created_at": p.get("created_at", ""),
+            "total_pages": p.get("total_pages", 1),
+            "sections_count": len(p.get("sections", [])),
+            "equations_count": len(p.get("equations", [])),
+            "notes_count": len(p.get("saved_notes", [])),
+            "chats_count": len(p.get("chat_history", [])),
+            "is_active": p.get("id") == active_id
+        })
+    return jsonify({"success": True, "history": history_summary})
+
+@app.route("/api/history/<paper_id>/load", methods=["POST"])
+def load_history_paper(paper_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_id = session["user_id"]
+    hist = get_user_history_list(user_id)
+    target_paper = next((p for p in hist if p.get("id") == paper_id), None)
+    if not target_paper:
+        return jsonify({"error": "Paper not found in history"}), 404
+
+    user_data_obj = restore_paper_into_session(user_id, target_paper)
+    return jsonify({
+        "success": True,
+        "paper_id": user_data_obj["paper_id"],
+        "title": user_data_obj["paper_info"]["title"],
+        "source_name": user_data_obj["source_name"],
+        "source_type": user_data_obj["source_type"],
+        "file_url": user_data_obj["saved_file_path"],
+        "total_pages": user_data_obj["paper_info"].get("total_pages", 1),
+        "sections": user_data_obj["paper_info"].get("sections", []),
+        "equations": user_data_obj["paper_info"].get("equations", []),
+        "notes": user_data_obj.get("saved_notes", []),
+        "has_podcast": user_data_obj.get("podcast_script") is not None,
+        "podcast_script": user_data_obj.get("podcast_script"),
+        "chat_history": user_data_obj.get("chat_history", []),
+        "overview_summary": target_paper.get("overview_summary", "")
+    })
+
+@app.route("/api/history/<paper_id>", methods=["DELETE"])
+def delete_history_paper(paper_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_id = session["user_id"]
+    store = load_history_store()
+    if user_id in store:
+        store[user_id] = [p for p in store[user_id] if p.get("id") != paper_id]
+        save_history_store(store)
+    
+    user_data_obj = user_data.get(user_id)
+    if user_data_obj and user_data_obj.get("paper_id") == paper_id:
+        if store.get(user_id) and len(store[user_id]) > 0:
+            restore_paper_into_session(user_id, store[user_id][0])
+        else:
+            user_data[user_id] = {
+                "paper_id": None, "vectorizer": None, "matrix": None, "fallback_retriever": None,
+                "stored_chunks": [], "source_name": None, "source_type": None, "saved_file_path": None,
+                "paper_info": None, "podcast_script": None, "saved_notes": [], "chat_history": []
+            }
+    return jsonify({"success": True})
+
+@app.route("/api/history/clear", methods=["POST"])
+def clear_user_history():
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_id = session["user_id"]
+    store = load_history_store()
+    if user_id in store:
+        store[user_id] = []
+        save_history_store(store)
+    user_data[user_id] = {
+        "paper_id": None, "vectorizer": None, "matrix": None, "fallback_retriever": None,
+        "stored_chunks": [], "source_name": None, "source_type": None, "saved_file_path": None,
+        "paper_info": None, "podcast_script": None, "saved_notes": [], "chat_history": []
+    }
+    return jsonify({"success": True})
+
+@app.route("/api/chat/clear", methods=["POST"])
+def clear_active_chat():
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_data_obj = get_user_data()
+    if user_data_obj:
+        user_data_obj["chat_history"] = []
+        sync_active_paper_history(session.get("user_id"), user_data_obj)
+    return jsonify({"success": True})
 
 # ==========================
 # PAPER ANALYSIS & SECTIONS API
@@ -1007,13 +1289,17 @@ def get_paper_details():
     info = user_data_obj["paper_info"]
     return jsonify({
         "loaded": True,
+        "paper_id": user_data_obj.get("paper_id"),
         "title": info["title"],
         "source_name": user_data_obj.get("source_name", "Research Paper"),
         "total_pages": info.get("total_pages", 1),
         "file_url": user_data_obj.get("saved_file_path", ""),
         "sections": info.get("sections", []),
         "equations": info.get("equations", []),
-        "has_podcast": user_data_obj.get("podcast_script") is not None
+        "notes": user_data_obj.get("saved_notes", []),
+        "has_podcast": user_data_obj.get("podcast_script") is not None,
+        "podcast_script": user_data_obj.get("podcast_script"),
+        "chat_history": user_data_obj.get("chat_history", [])
     })
 
 @app.route("/api/paper/equations", methods=["GET"])
@@ -1053,6 +1339,7 @@ def add_equation():
         "timestamp": datetime.now().strftime("%H:%M")
     }
     user_data_obj["paper_info"]["equations"].append(eq_obj)
+    sync_active_paper_history(session.get("user_id"), user_data_obj)
     return jsonify({"success": True, "equation": eq_obj, "total": len(user_data_obj["paper_info"]["equations"])})
 
 @app.route("/api/paper/delete_equation/<eq_id>", methods=["DELETE"])
@@ -1062,7 +1349,6 @@ def delete_equation(eq_id):
     user_data_obj = get_user_data()
     if user_data_obj and user_data_obj.get("paper_info"):
         eqs = user_data_obj["paper_info"].get("equations", [])
-        # Support string items or dictionary items
         updated = []
         for e in eqs:
             if isinstance(e, dict) and e.get("id") == eq_id:
@@ -1071,6 +1357,7 @@ def delete_equation(eq_id):
                 continue
             updated.append(e)
         user_data_obj["paper_info"]["equations"] = updated
+        sync_active_paper_history(session.get("user_id"), user_data_obj)
     return jsonify({"success": True})
 
 @app.route("/api/paper/auto_extract_equations", methods=["POST"])
@@ -1142,6 +1429,7 @@ Rules:
                     paper["equations"].append(eq_obj)
                     extracted_list.append(eq_obj)
 
+        sync_active_paper_history(session.get("user_id"), user_data_obj)
         return jsonify({"success": True, "added": len(extracted_list), "equations": paper["equations"]})
     except Exception as e:
         logger.error(f"Auto equation extraction error: {e}")
@@ -1272,6 +1560,7 @@ Episode Guidelines:
                     dialogue.append({"speaker": "Dr. Sam", "text": re.sub(r'^\*?\*?Dr\. Sam\*?\*?:\s*', '', line)})
 
         user_data_obj["podcast_script"] = dialogue
+        sync_active_paper_history(session.get("user_id"), user_data_obj)
         return jsonify({"success": True, "script": dialogue})
     except Exception as e:
         logger.error(f"Podcast generation error: {e}")
@@ -1303,7 +1592,25 @@ def ask():
         prompt = build_scholar_prompt(question, context, user_data_obj.get("source_name", "Paper"))
         answer = query_llm(prompt)
         
-        return jsonify({"answer": answer, "type": "document"})
+        # Save to chat history
+        chat_entry = {
+            "id": f"chat_{int(time.time()*1000)}",
+            "question": question,
+            "answer": answer,
+            "timestamp": datetime.now().strftime("%b %d, %H:%M"),
+            "type": "document"
+        }
+        if "chat_history" not in user_data_obj:
+            user_data_obj["chat_history"] = []
+        user_data_obj["chat_history"].append(chat_entry)
+        sync_active_paper_history(session.get("user_id"), user_data_obj)
+
+        return jsonify({
+            "answer": answer,
+            "type": "document",
+            "chat_entry": chat_entry,
+            "chat_history": user_data_obj["chat_history"]
+        })
     except Exception as e:
         logger.error(f"Ask error: {e}")
         return jsonify({"answer": f"Error: {str(e)}"}), 500
@@ -1331,6 +1638,7 @@ def add_note():
         "timestamp": datetime.now().strftime("%b %d, %H:%M")
     }
     user_data_obj["saved_notes"].append(note_obj)
+    sync_active_paper_history(session.get("user_id"), user_data_obj)
     return jsonify({"success": True, "note": note_obj, "total_notes": len(user_data_obj["saved_notes"])})
 
 @app.route("/api/notes/get", methods=["GET"])
@@ -1347,6 +1655,7 @@ def delete_note(note_id):
     user_data_obj = get_user_data()
     if user_data_obj:
         user_data_obj["saved_notes"] = [n for n in user_data_obj.get("saved_notes", []) if n.get("id") != note_id]
+        sync_active_paper_history(session.get("user_id"), user_data_obj)
     return jsonify({"success": True, "notes": user_data_obj.get("saved_notes", [])})
 
 @app.route("/api/notes/clear", methods=["POST"])
@@ -1356,6 +1665,7 @@ def clear_notes():
     user_data_obj = get_user_data()
     if user_data_obj:
         user_data_obj["saved_notes"] = []
+        sync_active_paper_history(session.get("user_id"), user_data_obj)
     return jsonify({"success": True})
 
 @app.route("/api/notes/auto_extract", methods=["POST"])
@@ -1411,6 +1721,7 @@ Format as a valid JSON list of items with 'text' and 'tag' (choose tag from: Nov
                     user_data_obj["saved_notes"].append(note_obj)
                     extracted.append(note_obj)
 
+        sync_active_paper_history(session.get("user_id"), user_data_obj)
         return jsonify({"success": True, "added": len(extracted), "notes": user_data_obj["saved_notes"]})
     except Exception as e:
         logger.error(f"Auto note extraction error: {e}")
